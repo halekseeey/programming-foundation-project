@@ -1,6 +1,6 @@
 // Filters component for region and energy type selection
 let selectedRegions = [];
-let selectedEnergyType = null;
+let selectedEnergyTypes = [];
 
 async function loadFilters() {
 	const container = document.getElementById('filters-container');
@@ -17,26 +17,108 @@ async function loadFilters() {
 				<h2 class="text-lg font-semibold mb-4">Filters</h2>
 				<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 					<div>
-						<label class="block text-sm font-medium text-slate-300 mb-2">Select Regions (Multiple)</label>
-						<select 
-							id="region-select" 
-							multiple
-							size="8"
-							class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
-						>
-							${regions.map((r) => `<option value="${r}">${r}</option>`).join('')}
-						</select>
-						<p class="text-xs text-slate-400 mt-1">Hold Ctrl/Cmd to select multiple regions</p>
+						<label class="block text-sm font-medium text-slate-300 mb-2">Select Regions</label>
+						<div class="relative">
+							<button
+								id="region-dropdown-btn"
+								class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-sky-500 flex items-center justify-between"
+							>
+								<span id="region-display-text">${selectedRegions.length > 0 ? `${selectedRegions.length} selected` : 'Select regions...'}</span>
+								<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+								</svg>
+							</button>
+							<div
+								id="region-dropdown"
+								class="hidden absolute z-10 w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg shadow-lg max-h-[300px] overflow-y-auto"
+							>
+								<div class="p-3 space-y-2">
+									${regions
+										.map(
+											(r) => `
+										<label class="flex items-center space-x-2 cursor-pointer hover:bg-slate-700/50 rounded px-2 py-1 transition-colors">
+											<input 
+												type="checkbox" 
+												value="${r}" 
+												class="region-checkbox w-4 h-4 text-sky-600 bg-slate-700 border-slate-600 rounded focus:ring-sky-500 focus:ring-2"
+												${selectedRegions.includes(r) ? 'checked' : ''}
+											>
+											<span class="text-sm text-slate-300">${r}</span>
+										</label>
+									`
+										)
+										.join('')}
+								</div>
+								<div class="border-t border-slate-700 p-2 flex gap-2">
+									<button 
+										id="select-all-regions-btn"
+										class="text-xs px-2 py-1 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded transition-colors"
+									>
+										Select All
+									</button>
+									<button 
+										id="deselect-all-regions-btn"
+										class="text-xs px-2 py-1 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded transition-colors"
+									>
+										Deselect All
+									</button>
+								</div>
+							</div>
+						</div>
 					</div>
 					<div>
-						<label class="block text-sm font-medium text-slate-300 mb-2">Select Energy Type</label>
-						<select 
-							id="energy-type-select" 
-							class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
-						>
-							<option value="">All Energy Types</option>
-							${energyTypes.map((e) => `<option value="${e}">${e}</option>`).join('')}
-						</select>
+						<label class="block text-sm font-medium text-slate-300 mb-2">Select Energy Types</label>
+						<div class="relative">
+							<button
+								id="energy-type-dropdown-btn"
+								class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-sky-500 flex items-center justify-between"
+							>
+								<span id="energy-type-display-text">${
+									selectedEnergyTypes.length > 0
+										? `${selectedEnergyTypes.length} selected`
+										: 'Select energy types...'
+								}</span>
+								<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+								</svg>
+							</button>
+							<div
+								id="energy-type-dropdown"
+								class="hidden absolute z-10 w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg shadow-lg max-h-[300px] overflow-y-auto"
+							>
+								<div class="p-3 space-y-2">
+									${energyTypes
+										.map(
+											(e) => `
+										<label class="flex items-center space-x-2 cursor-pointer hover:bg-slate-700/50 rounded px-2 py-1 transition-colors">
+											<input 
+												type="checkbox" 
+												value="${e}" 
+												class="energy-type-checkbox w-4 h-4 text-sky-600 bg-slate-700 border-slate-600 rounded focus:ring-sky-500 focus:ring-2"
+												${selectedEnergyTypes.includes(e) ? 'checked' : ''}
+											>
+											<span class="text-sm text-slate-300">${e}</span>
+										</label>
+									`
+										)
+										.join('')}
+								</div>
+								<div class="border-t border-slate-700 p-2 flex gap-2">
+									<button 
+										id="select-all-energy-types-btn"
+										class="text-xs px-2 py-1 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded transition-colors"
+									>
+										Select All
+									</button>
+									<button 
+										id="deselect-all-energy-types-btn"
+										class="text-xs px-2 py-1 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded transition-colors"
+									>
+										Deselect All
+									</button>
+								</div>
+							</div>
+						</div>
 					</div>
 				</div>
 				<div class="mt-4 flex gap-2">
@@ -53,24 +135,7 @@ async function loadFilters() {
 						Clear Filters
 					</button>
 				</div>
-				${
-					selectedRegions.length > 0
-						? `
-					<div class="mt-4 p-3 bg-slate-800/60 rounded-lg">
-						<p class="text-xs text-slate-400 mb-2">Selected regions:</p>
-						<div class="flex flex-wrap gap-2">
-							${selectedRegions
-								.map(
-									(r) => `
-								<span class="px-2 py-1 bg-sky-600/20 text-sky-300 text-xs rounded">${r}</span>
-							`
-								)
-								.join('')}
-						</div>
-					</div>
-				`
-						: ''
-				}
+				<div class="selected-regions-display"></div>
 			</section>
 		`;
 
@@ -79,14 +144,150 @@ async function loadFilters() {
 		// Setup event listeners
 		const applyBtn = document.getElementById('apply-filters-btn');
 		const clearBtn = document.getElementById('clear-filters-btn');
-		const regionSelect = document.getElementById('region-select');
-		const energyTypeSelect = document.getElementById('energy-type-select');
+		const regionDropdownBtn = document.getElementById('region-dropdown-btn');
+		const regionDropdown = document.getElementById('region-dropdown');
+		const selectAllBtn = document.getElementById('select-all-regions-btn');
+		const deselectAllBtn = document.getElementById('deselect-all-regions-btn');
+		const energyTypeDropdownBtn = document.getElementById('energy-type-dropdown-btn');
+		const energyTypeDropdown = document.getElementById('energy-type-dropdown');
+		const selectAllEnergyTypesBtn = document.getElementById('select-all-energy-types-btn');
+		const deselectAllEnergyTypesBtn = document.getElementById('deselect-all-energy-types-btn');
+		const energyTypeCheckboxes = document.querySelectorAll('.energy-type-checkbox');
+		const regionCheckboxes = document.querySelectorAll('.region-checkbox');
+
+		// Region dropdown toggle
+		if (regionDropdownBtn && regionDropdown) {
+			regionDropdownBtn.addEventListener('click', (e) => {
+				e.stopPropagation();
+				regionDropdown.classList.toggle('hidden');
+			});
+
+			// Close dropdown when clicking outside
+			document.addEventListener('click', (e) => {
+				if (!regionDropdown.contains(e.target) && !regionDropdownBtn.contains(e.target)) {
+					regionDropdown.classList.add('hidden');
+				}
+			});
+		}
+
+		// Update selected regions when checkbox changes
+		regionCheckboxes.forEach((checkbox) => {
+			checkbox.addEventListener('change', () => {
+				updateSelectedRegions();
+			});
+		});
+
+		function updateSelectedRegions() {
+			selectedRegions = Array.from(document.querySelectorAll('.region-checkbox:checked')).map((cb) => cb.value);
+			const displayText = document.getElementById('region-display-text');
+			if (displayText) {
+				if (selectedRegions.length > 0) {
+					displayText.textContent = `${selectedRegions.length} selected`;
+				} else {
+					displayText.textContent = 'Select regions...';
+				}
+			}
+			// Update selected regions display
+			const selectedContainer = document.querySelector('.selected-regions-display');
+			if (selectedContainer) {
+				if (selectedRegions.length > 0) {
+					selectedContainer.innerHTML = `
+						<div class="mt-4 p-3 bg-slate-800/60 rounded-lg">
+							<p class="text-xs text-slate-400 mb-2">Selected regions (${selectedRegions.length}):</p>
+							<div class="flex flex-wrap gap-2">
+								${selectedRegions
+									.map(
+										(r) => `
+									<span class="px-2 py-1 bg-sky-600/20 text-sky-300 text-xs rounded">${r}</span>
+								`
+									)
+									.join('')}
+							</div>
+						</div>
+					`;
+				} else {
+					selectedContainer.innerHTML = '';
+				}
+			}
+		}
+
+		if (selectAllBtn) {
+			selectAllBtn.addEventListener('click', () => {
+				regionCheckboxes.forEach((checkbox) => {
+					checkbox.checked = true;
+				});
+				updateSelectedRegions();
+			});
+		}
+
+		if (deselectAllBtn) {
+			deselectAllBtn.addEventListener('click', () => {
+				regionCheckboxes.forEach((checkbox) => {
+					checkbox.checked = false;
+				});
+				updateSelectedRegions();
+			});
+		}
+
+		// Energy type dropdown toggle
+		if (energyTypeDropdownBtn && energyTypeDropdown) {
+			energyTypeDropdownBtn.addEventListener('click', (e) => {
+				e.stopPropagation();
+				energyTypeDropdown.classList.toggle('hidden');
+			});
+
+			// Close dropdown when clicking outside
+			document.addEventListener('click', (e) => {
+				if (!energyTypeDropdown.contains(e.target) && !energyTypeDropdownBtn.contains(e.target)) {
+					energyTypeDropdown.classList.add('hidden');
+				}
+			});
+		}
+
+		// Update selected energy types when checkbox changes
+		energyTypeCheckboxes.forEach((checkbox) => {
+			checkbox.addEventListener('change', () => {
+				updateSelectedEnergyTypes();
+			});
+		});
+
+		function updateSelectedEnergyTypes() {
+			selectedEnergyTypes = Array.from(document.querySelectorAll('.energy-type-checkbox:checked')).map((cb) => cb.value);
+			const displayText = document.getElementById('energy-type-display-text');
+			if (displayText) {
+				if (selectedEnergyTypes.length > 0) {
+					displayText.textContent = `${selectedEnergyTypes.length} selected`;
+				} else {
+					displayText.textContent = 'Select energy types...';
+				}
+			}
+		}
+
+		if (selectAllEnergyTypesBtn) {
+			selectAllEnergyTypesBtn.addEventListener('click', () => {
+				energyTypeCheckboxes.forEach((checkbox) => {
+					checkbox.checked = true;
+				});
+				updateSelectedEnergyTypes();
+			});
+		}
+
+		if (deselectAllEnergyTypesBtn) {
+			deselectAllEnergyTypesBtn.addEventListener('click', () => {
+				energyTypeCheckboxes.forEach((checkbox) => {
+					checkbox.checked = false;
+				});
+				updateSelectedEnergyTypes();
+			});
+		}
 
 		if (applyBtn) {
 			applyBtn.addEventListener('click', async () => {
-				// Get all selected regions
-				selectedRegions = Array.from(regionSelect.selectedOptions).map((opt) => opt.value);
-				selectedEnergyType = energyTypeSelect.value || null;
+				// Get all selected regions from checkboxes
+				selectedRegions = Array.from(document.querySelectorAll('.region-checkbox:checked')).map((cb) => cb.value);
+				selectedEnergyTypes = Array.from(document.querySelectorAll('.energy-type-checkbox:checked')).map(
+					(cb) => cb.value
+				);
 
 				if (selectedRegions.length === 0) {
 					alert('Please select at least one region');
@@ -100,18 +301,28 @@ async function loadFilters() {
 		if (clearBtn) {
 			clearBtn.addEventListener('click', () => {
 				selectedRegions = [];
-				selectedEnergyType = null;
-				// Clear all selections in multi-select
-				Array.from(regionSelect.options).forEach((opt) => (opt.selected = false));
-				energyTypeSelect.value = '';
+				selectedEnergyTypes = [];
+				// Clear all checkboxes
+				regionCheckboxes.forEach((checkbox) => {
+					checkbox.checked = false;
+				});
+				energyTypeCheckboxes.forEach((checkbox) => {
+					checkbox.checked = false;
+				});
 				const filteredContainer = document.getElementById('filtered-analysis-container');
 				if (filteredContainer) {
 					filteredContainer.style.display = 'none';
 				}
-				// Reload filters to update UI
-				loadFilters();
+				updateSelectedRegions();
+				updateSelectedEnergyTypes();
 			});
 		}
+
+		// Initial update
+		updateSelectedEnergyTypes();
+
+		// Initial update of selected regions display
+		updateSelectedRegions();
 	} catch (error) {
 		console.error('Failed to load filters:', error);
 		container.innerHTML = `
@@ -140,7 +351,7 @@ async function applyFilters() {
 
 	try {
 		// Load filtered visualizations (works with large dataset)
-		const filteredData = await API.getFilteredVisualizations(selectedRegions, selectedEnergyType);
+		const filteredData = await API.getFilteredVisualizations(selectedRegions, selectedEnergyTypes);
 
 		if (filteredData.error) {
 			chartsContainer.innerHTML = `

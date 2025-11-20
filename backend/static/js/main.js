@@ -31,11 +31,8 @@ async function loadAllAnalysis() {
 	}
 }
 
-// Initialize dashboard, filters, and analysis on page load
+// Initialize filters and analysis on page load
 document.addEventListener('DOMContentLoaded', async () => {
-	// Load dashboard
-	await renderDashboard();
-
 	// Load filters
 	await loadFilters();
 
