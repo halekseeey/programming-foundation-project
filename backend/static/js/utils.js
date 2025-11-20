@@ -28,10 +28,22 @@ function renderPlotlyChart(chartId, plotData, options = {}) {
 	};
 
 	try {
-		Plotly.newPlot(chartId, plotData.data, plotData.layout, { ...defaultOptions, ...options });
+		// Extract data, layout, and frames from plotData
+		const data = plotData.data || [];
+		const layout = plotData.layout || {};
+		const frames = plotData.frames || null;
+
+		// Create plot configuration
+		const config = { ...defaultOptions, ...options };
+
+		// If frames exist, use Plotly.newPlot with frames for animation support
+		if (frames && frames.length > 0) {
+			Plotly.newPlot(chartId, { data, layout, frames }, config);
+		} else {
+			Plotly.newPlot(chartId, data, layout, config);
+		}
 	} catch (error) {
 		console.error(`Error rendering chart ${chartId}:`, error);
 		element.innerHTML = `<p class="text-red-400">Error rendering chart: ${error.message}</p>`;
 	}
 }
-

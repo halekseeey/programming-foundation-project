@@ -16,7 +16,8 @@ const API = {
 	correlation: (indicator = 'gdp') => fetchJSON(`${API_BASE}/api/analysis/correlation?indicator=${indicator}`),
 	heatmap: () => fetchJSON(`${API_BASE}/api/analysis/visualizations/heatmap`),
 	map: () => fetchJSON(`${API_BASE}/api/analysis/visualizations/map`),
+	animatedMap: () => fetchJSON(`${API_BASE}/api/analysis/visualizations/animated-map`),
+	animatedBar: () => fetchJSON(`${API_BASE}/api/analysis/visualizations/animated-bar`),
 	datasetPreview: (dataset = 'merged_dataset', limit = 10) =>
 		fetchJSON(`${API_BASE}/api/datasets/${dataset}/preview?limit=${limit}`)
 };
-

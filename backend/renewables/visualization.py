@@ -611,6 +611,365 @@ def make_regional_map(
     return fig
 
 
+def make_animated_regional_map(
+    df: pd.DataFrame,
+    geo_col: str,
+    year_col: str,
+    value_col: str,
+    title: str = "Renewable Energy Adoption Evolution by Region"
+) -> go.Figure:
+    """
+    Create an animated map showing how renewable energy adoption evolves year by year.
+    Uses Plotly's animation_frame to animate over years.
+    
+    Args:
+        df: DataFrame with regional data for multiple years
+        geo_col: Column name for regions
+        year_col: Column name for years
+        value_col: Column name for values
+        title: Chart title
+    
+    Returns:
+        Plotly Figure with animation
+    """
+    if df.empty:
+        fig = go.Figure()
+        fig.add_annotation(text="No data available", showarrow=False)
+        return fig
+    
+    # Filter out aggregated regions (EU, etc.) - only show individual countries
+    exclude_patterns = ['union', 'european', 'countries', 'euro area', 'eurozone']
+    df = df[
+        ~df[geo_col].astype(str).str.lower().str.contains('|'.join(exclude_patterns), na=False)
+    ]
+    
+    if df.empty:
+        fig = go.Figure()
+        fig.add_annotation(text="No data available", showarrow=False)
+        return fig
+    
+    # Ensure year column is numeric and sorted
+    df[year_col] = pd.to_numeric(df[year_col], errors='coerce')
+    df[value_col] = pd.to_numeric(df[value_col], errors='coerce')
+    df = df.dropna(subset=[geo_col, year_col, value_col])
+    
+    if df.empty:
+        fig = go.Figure()
+        fig.add_annotation(text="No data available", showarrow=False)
+        return fig
+    
+    # Get average value per region per year
+    df_agg = df.groupby([geo_col, year_col])[value_col].mean().reset_index()
+    
+    # Sort by year for animation
+    df_agg = df_agg.sort_values(year_col)
+    
+    # Calculate fixed color scale range across all years
+    all_values = df_agg[value_col].tolist()
+    z_min = min(all_values) if all_values else 0
+    z_max = max(all_values) if all_values else 100
+    
+    # Create initial frame (first year)
+    years = sorted(df_agg[year_col].unique())
+    first_year = years[0]
+    first_year_data = df_agg[df_agg[year_col] == first_year]
+    
+    # Create initial choropleth
+    fig = go.Figure(
+        data=go.Choropleth(
+            locations=first_year_data[geo_col].tolist(),
+            z=first_year_data[value_col].tolist(),
+            text=first_year_data[geo_col].tolist(),
+            colorscale='Viridis',
+            colorbar=dict(title="Renewable Energy %"),
+            hovertemplate='<b>%{text}</b><br>Year: %{customdata}<br>Value: %{z:.2f}%<extra></extra>',
+            customdata=[first_year] * len(first_year_data),
+            locationmode='country names',
+            zmin=z_min,
+            zmax=z_max
+        )
+    )
+    
+    # Create frames for each year
+    frames = []
+    for year in years:
+        year_data = df_agg[df_agg[year_col] == year]
+        frames.append(
+            go.Frame(
+                data=[go.Choropleth(
+                    locations=year_data[geo_col].tolist(),
+                    z=year_data[value_col].tolist(),
+                    text=year_data[geo_col].tolist(),
+                    colorscale='Viridis',
+                    colorbar=dict(title="Renewable Energy %"),
+                    hovertemplate='<b>%{text}</b><br>Year: %{customdata}<br>Value: %{z:.2f}%<extra></extra>',
+                    customdata=[year] * len(year_data),
+                    locationmode='country names',
+                    zmin=z_min,
+                    zmax=z_max
+                )],
+                name=str(year)
+            )
+        )
+    
+    fig.frames = frames
+    
+    fig.update_geos(
+        projection_type='natural earth',
+        showframe=False,
+        showcoastlines=True,
+        projection_scale=1.2
+    )
+    
+    fig.update_layout(
+        title=title,
+        template="plotly_dark",
+        height=600,
+        updatemenus=[{
+            'type': 'buttons',
+            'showactive': True,
+            'x': 1.0,
+            'xanchor': 'right',
+            'y': 0,
+            'yanchor': 'bottom',
+            'bgcolor': 'rgba(30, 41, 59, 0.95)',
+            'bordercolor': 'rgba(255, 255, 255, 0.3)',
+            'borderwidth': 1,
+            'buttons': [
+                {
+                    'label': 'Play',
+                    'method': 'animate',
+                    'args': [None, {
+                        'frame': {'duration': 500, 'redraw': True},
+                        'fromcurrent': True,
+                        'transition': {'duration': 300}
+                    }]
+                },
+                {
+                    'label': 'Pause',
+                    'method': 'animate',
+                    'args': [[None], {
+                        'frame': {'duration': 0, 'redraw': False},
+                        'mode': 'immediate',
+                        'transition': {'duration': 0}
+                    }]
+                }
+            ],
+            'font': {'color': '#1e293b', 'size': 12},
+            'active': -1,
+            'pad': {'t': 5, 'r': 5, 'b': 5, 'l': 5}
+        }],
+        sliders=[{
+            'active': 0,
+            'currentvalue': {'prefix': 'Year: '},
+            'steps': [{
+                'args': [[str(year)], {
+                    'frame': {'duration': 300, 'redraw': True},
+                    'mode': 'immediate',
+                    'transition': {'duration': 300}
+                }],
+                'label': str(year),
+                'method': 'animate'
+            } for year in years]
+        }]
+    )
+    
+    return fig
+
+
+def make_animated_regional_bar_chart(
+    df: pd.DataFrame,
+    geo_col: str,
+    year_col: str,
+    value_col: str,
+    title: str = "Renewable Energy Share Evolution by Region"
+) -> go.Figure:
+    """
+    Create an animated bar chart showing how renewable energy share changes year by year across regions.
+    
+    Args:
+        df: DataFrame with regional data for multiple years
+        geo_col: Column name for regions
+        year_col: Column name for years
+        value_col: Column name for values
+        title: Chart title
+    
+    Returns:
+        Plotly Figure with animation
+    """
+    if df.empty:
+        fig = go.Figure()
+        fig.add_annotation(text="No data available", showarrow=False)
+        return fig
+    
+    # Filter out aggregated regions (EU, etc.) - only show individual countries
+    exclude_patterns = ['union', 'european', 'countries', 'euro area', 'eurozone']
+    df = df[
+        ~df[geo_col].astype(str).str.lower().str.contains('|'.join(exclude_patterns), na=False)
+    ]
+    
+    if df.empty:
+        fig = go.Figure()
+        fig.add_annotation(text="No data available", showarrow=False)
+        return fig
+    
+    # Ensure year column is numeric and sorted
+    df[year_col] = pd.to_numeric(df[year_col], errors='coerce')
+    df[value_col] = pd.to_numeric(df[value_col], errors='coerce')
+    df = df.dropna(subset=[geo_col, year_col, value_col])
+    
+    if df.empty:
+        fig = go.Figure()
+        fig.add_annotation(text="No data available", showarrow=False)
+        return fig
+    
+    # Get average value per region per year
+    df_agg = df.groupby([geo_col, year_col])[value_col].mean().reset_index()
+    
+    # Sort by year for animation
+    df_agg = df_agg.sort_values(year_col)
+    
+    # Get top regions by average value across all years
+    region_avg = df_agg.groupby(geo_col)[value_col].mean().sort_values(ascending=False)
+    top_regions = region_avg.head(15).index.tolist()  # Top 15 regions
+    
+    df_agg = df_agg[df_agg[geo_col].isin(top_regions)]
+    
+    if df_agg.empty:
+        fig = go.Figure()
+        fig.add_annotation(text="No data available", showarrow=False)
+        return fig
+    
+    years = sorted(df_agg[year_col].unique())
+    
+    # Calculate fixed axis ranges across all years
+    all_values = df_agg[value_col].tolist()
+    x_min = min(all_values) if all_values else 0
+    x_max = max(all_values) if all_values else 100
+    # Add small padding
+    x_range = [x_min - (x_max - x_min) * 0.05, x_max + (x_max - x_min) * 0.05]
+    
+    # Get all unique regions (for y-axis)
+    all_regions = sorted(df_agg[geo_col].unique().tolist())
+    
+    # Create initial frame (first year)
+    first_year = years[0]
+    first_year_data = df_agg[df_agg[year_col] == first_year]
+    # Sort ascending so highest values (leaders) are at the top
+    # (In Plotly horizontal bars, last item in data array appears at top)
+    first_year_data = first_year_data.sort_values(value_col, ascending=True)
+    
+    fig = go.Figure(
+        data=[go.Bar(
+            x=first_year_data[value_col].tolist(),
+            y=first_year_data[geo_col].tolist(),
+            orientation='h',
+            marker=dict(
+                color=first_year_data[value_col].tolist(),
+                colorscale='Viridis',
+                showscale=True,
+                colorbar=dict(title="Renewable Energy %"),
+                cmin=x_min,
+                cmax=x_max
+            ),
+            hovertemplate='<b>%{y}</b><br>Year: %{customdata}<br>Value: %{x:.2f}%<extra></extra>',
+            customdata=[first_year] * len(first_year_data)
+        )]
+    )
+    
+    # Create frames for each year
+    frames = []
+    for year in years:
+        year_data = df_agg[df_agg[year_col] == year]
+        # Sort ascending so highest values (leaders) are at the top for each year
+        # (In Plotly horizontal bars, last item in data array appears at top)
+        year_data = year_data.sort_values(value_col, ascending=True)
+        
+        frames.append(
+            go.Frame(
+                data=[go.Bar(
+                    x=year_data[value_col].tolist(),
+                    y=year_data[geo_col].tolist(),
+                    orientation='h',
+                    marker=dict(
+                        color=year_data[value_col].tolist(),
+                        colorscale='Viridis',
+                        showscale=True,
+                        colorbar=dict(title="Renewable Energy %"),
+                        cmin=x_min,
+                        cmax=x_max
+                    ),
+                    hovertemplate='<b>%{y}</b><br>Year: %{customdata}<br>Value: %{x:.2f}%<extra></extra>',
+                    customdata=[year] * len(year_data)
+                )],
+                name=str(year)
+            )
+        )
+    
+    fig.frames = frames
+    
+    fig.update_layout(
+        title=title,
+        xaxis_title="Renewable Energy Share (%)",
+        yaxis_title="Region",
+        template="plotly_dark",
+        height=600,
+        # Fix axis ranges so they don't change during animation
+        xaxis=dict(range=x_range, fixedrange=False),
+        # Don't fix y-axis order - let it sort by value for each frame (leaders on top)
+        yaxis=dict(fixedrange=True),
+        updatemenus=[{
+            'type': 'buttons',
+            'showactive': True,
+            'x': 1.0,
+            'xanchor': 'right',
+            'y': 0,
+            'yanchor': 'bottom',
+            'bgcolor': 'rgba(200, 200, 200, 0.95)',
+            'bordercolor': 'rgba(255, 255, 255, 0.3)',
+            'borderwidth': 1,
+            'buttons': [
+                {
+                    'label': 'Play',
+                    'method': 'animate',
+                    'args': [None, {
+                        'frame': {'duration': 500, 'redraw': True},
+                        'fromcurrent': True,
+                        'transition': {'duration': 300}
+                    }]
+                },
+                {
+                    'label': 'Pause',
+                    'method': 'animate',
+                    'args': [[None], {
+                        'frame': {'duration': 0, 'redraw': False},
+                        'mode': 'immediate',
+                        'transition': {'duration': 0}
+                    }]
+                }
+            ],
+            'font': {'color': '#1e293b', 'size': 12},
+            'active': -1,
+            'pad': {'t': 5, 'r': 5, 'b': 5, 'l': 5}
+        }],
+        sliders=[{
+            'active': 0,
+            'currentvalue': {'prefix': 'Year: '},
+            'steps': [{
+                'args': [[str(year)], {
+                    'frame': {'duration': 300, 'redraw': True},
+                    'mode': 'immediate',
+                    'transition': {'duration': 300}
+                }],
+                'label': str(year),
+                'method': 'animate'
+            } for year in years]
+        }]
+    )
+    
+    return fig
+
+
 def save_chart(fig: go.Figure, chart_name: str, format: str = 'png') -> Optional[str]:
     """
     Save a Plotly figure to file as PNG (overwrites existing file).

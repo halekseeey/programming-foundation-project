@@ -18,7 +18,9 @@ from renewables.visualization import (
     make_yearly_comparison_plot,
     make_sources_by_region_bar_chart,
     make_regional_heatmap,
-    make_regional_map
+    make_regional_map,
+    make_animated_regional_map,
+    make_animated_regional_bar_chart
 )
 
 analytics_bp = Blueprint('analytics', __name__)
@@ -256,7 +258,10 @@ def heatmap_regional():
     )
     
     # Convert figure to dict and clean NaN values
-    fig_dict = fig.to_dict()
+    # Use to_json() to ensure frames are included, then parse back to dict
+    import json
+    fig_json = fig.to_json()
+    fig_dict = json.loads(fig_json)
     fig_dict = clean_plotly_dict_for_json(fig_dict)
     
     return jsonify({"plot": fig_dict})
@@ -314,7 +319,126 @@ def map_regional():
     )
     
     # Convert figure to dict and clean NaN values
-    fig_dict = fig.to_dict()
+    # Use to_json() to ensure frames are included, then parse back to dict
+    import json
+    fig_json = fig.to_json()
+    fig_dict = json.loads(fig_json)
+    fig_dict = clean_plotly_dict_for_json(fig_dict)
+    
+    return jsonify({"plot": fig_dict})
+
+
+@analytics_bp.get("/api/analysis/visualizations/animated-map")
+def animated_map_regional():
+    """
+    /api/analysis/visualizations/animated-map?year_from=2010&year_to=2022
+    Animated map showing how renewable energy adoption evolves year by year.
+    """
+    from renewables.data_loader import load_dataset
+    
+    year_from = request.args.get("year_from", type=int)
+    year_to = request.args.get("year_to", type=int)
+    
+    df = load_dataset("merged_dataset")
+    
+    geo_col = "geo"
+    year_col = "TIME_PERIOD"
+    value_col = None
+    
+    # Find renewable energy percentage column
+    obs_value_cols = [col for col in df.columns if col.startswith('OBS_VALUE_')]
+    for col in obs_value_cols:
+        if 'nrg_ind_ren' in col or 'ind_ren' in col.lower():
+            value_col = col
+            break
+    
+    if not value_col:
+        return jsonify({"error": "Renewable energy column not found"})
+    
+    # Filter data
+    df[year_col] = pd.to_numeric(df[year_col], errors='coerce')
+    df[value_col] = pd.to_numeric(df[value_col], errors='coerce')
+    df = df.dropna(subset=[geo_col, year_col, value_col])
+    
+    if year_from:
+        df = df[df[year_col] >= year_from]
+    if year_to:
+        df = df[df[year_col] <= year_to]
+    
+    if df.empty:
+        return jsonify({"error": "No data available"})
+    
+    fig = make_animated_regional_map(
+        df,
+        geo_col,
+        year_col,
+        value_col,
+        "Renewable Energy Adoption Evolution by Region"
+    )
+    
+    # Convert figure to dict and clean NaN values
+    # Use to_json() to ensure frames are included, then parse back to dict
+    import json
+    fig_json = fig.to_json()
+    fig_dict = json.loads(fig_json)
+    fig_dict = clean_plotly_dict_for_json(fig_dict)
+    
+    return jsonify({"plot": fig_dict})
+
+
+@analytics_bp.get("/api/analysis/visualizations/animated-bar")
+def animated_bar_regional():
+    """
+    /api/analysis/visualizations/animated-bar?year_from=2010&year_to=2022
+    Animated bar chart showing how renewable energy share changes year by year across regions.
+    """
+    from renewables.data_loader import load_dataset
+    
+    year_from = request.args.get("year_from", type=int)
+    year_to = request.args.get("year_to", type=int)
+    
+    df = load_dataset("merged_dataset")
+    
+    geo_col = "geo"
+    year_col = "TIME_PERIOD"
+    value_col = None
+    
+    # Find renewable energy percentage column
+    obs_value_cols = [col for col in df.columns if col.startswith('OBS_VALUE_')]
+    for col in obs_value_cols:
+        if 'nrg_ind_ren' in col or 'ind_ren' in col.lower():
+            value_col = col
+            break
+    
+    if not value_col:
+        return jsonify({"error": "Renewable energy column not found"})
+    
+    # Filter data
+    df[year_col] = pd.to_numeric(df[year_col], errors='coerce')
+    df[value_col] = pd.to_numeric(df[value_col], errors='coerce')
+    df = df.dropna(subset=[geo_col, year_col, value_col])
+    
+    if year_from:
+        df = df[df[year_col] >= year_from]
+    if year_to:
+        df = df[df[year_col] <= year_to]
+    
+    if df.empty:
+        return jsonify({"error": "No data available"})
+    
+    fig = make_animated_regional_bar_chart(
+        df,
+        geo_col,
+        year_col,
+        value_col,
+        "Renewable Energy Share Evolution by Region"
+    )
+    
+    # Convert figure to dict and clean NaN values
+    # Use to_json() to ensure frames are included, then parse back to dict
+    import json
+    fig_json = fig.to_json()
+    fig_dict = json.loads(fig_json)
     fig_dict = clean_plotly_dict_for_json(fig_dict)
     
     return jsonify({"plot": fig_dict})

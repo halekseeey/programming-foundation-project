@@ -65,16 +65,16 @@ def filter_renewables(
             year_col = col_name
             break
     if year_col is None:
-        year_col = df.columns[1] if len(df.columns) > 1 else df.columns[-1]
+            year_col = df.columns[1] if len(df.columns) > 1 else df.columns[-1]
 
     if country:
         df = df[df[geo_col].astype(str).str.contains(str(country), case=False, na=False)]
 
     if year_from or year_to:
-        df[year_col] = pd.to_numeric(df[year_col], errors='coerce')
+            df[year_col] = pd.to_numeric(df[year_col], errors='coerce')
     if year_from:
-        df = df[df[year_col] >= year_from]
+            df = df[df[year_col] >= year_from]
     if year_to:
-        df = df[df[year_col] <= year_to]
+            df = df[df[year_col] <= year_to]
 
     return df

@@ -324,7 +324,7 @@ def evaluate_regions_ranking(year_from: Optional[int] = None, year_to: Optional[
     df = df[
         ~df[geo_col].astype(str).str.lower().str.contains('|'.join(exclude_patterns), na=False)
     ]
-    
+
     if len(df) == 0:
         return {"error": "No data available"}
     
@@ -343,7 +343,7 @@ def evaluate_regions_ranking(year_from: Optional[int] = None, year_to: Optional[
             current_value = latest_year_data[primary_value_col].iloc[0]
         else:
             continue
-        
+
         # Growth rate (linear regression)
         years = region_data[year_col].values
         values = region_data[primary_value_col].values
@@ -436,7 +436,7 @@ def correlate_with_indicators(
         df = df[df[geo_col].astype(str).str.contains(str(country), case=False, na=False)]
     
     # Filter by year range
-    df[year_col] = pd.to_numeric(df[year_col], errors='coerce')
+        df[year_col] = pd.to_numeric(df[year_col], errors='coerce')
     df[renewable_pct_col] = pd.to_numeric(df[renewable_pct_col], errors='coerce')
     if energy_balance_col:
         df[energy_balance_col] = pd.to_numeric(df[energy_balance_col], errors='coerce')
@@ -525,7 +525,7 @@ def correlate_with_indicators(
                 base_gdp = 1000 + (row['renewable_value'] * 50)
                 gdp_value = base_gdp * (1 + (row[year_col] - 2010) * 0.02)
                 indicator_data.append({
-                    "region": str(region),
+                    "region": str(row[geo_col]),
                     "year": int(row[year_col]),
                     "indicator_value": float(gdp_value),
                     "renewable_value": float(row['renewable_value'])

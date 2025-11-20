@@ -12,6 +12,18 @@
             color: #ededed;
             font-family: Arial, Helvetica, sans-serif;
         }
+        /* Fix Plotly animation button text color for readability */
+        .plotly .updatemenu-button {
+            color: #1e293b !important;
+        }
+        .plotly .updatemenu-button.active {
+            background-color: rgba(255, 255, 255, 0.9) !important;
+            color: #0f172a !important;
+        }
+        .plotly .updatemenu-button:hover {
+            background-color: rgba(56, 189, 248, 0.3) !important;
+            color: #ededed !important;
+        }
     </style>
 </head>
 <body>
@@ -24,6 +36,10 @@
     <script src="{{ url_for('static', filename='js/components/energySources.js') }}"></script>
     <script src="{{ url_for('static', filename='js/components/regionsRanking.js') }}"></script>
     <script src="{{ url_for('static', filename='js/components/correlationAnalysis.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/components/heatmapChart.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/components/mapChart.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/components/animatedMapChart.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/components/animatedBarChart.js') }}"></script>
     <script src="{{ url_for('static', filename='js/components/additionalVisualizations.js') }}"></script>
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 </body>
