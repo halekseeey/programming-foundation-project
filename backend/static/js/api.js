@@ -15,9 +15,30 @@ const API = {
 	regionsRanking: () => fetchJSON(`${API_BASE}/api/analysis/regions-ranking`),
 	correlation: (indicator = 'gdp') => fetchJSON(`${API_BASE}/api/analysis/correlation?indicator=${indicator}`),
 	heatmap: () => fetchJSON(`${API_BASE}/api/analysis/visualizations/heatmap`),
-	map: () => fetchJSON(`${API_BASE}/api/analysis/visualizations/map`),
 	animatedMap: () => fetchJSON(`${API_BASE}/api/analysis/visualizations/animated-map`),
 	animatedBar: () => fetchJSON(`${API_BASE}/api/analysis/visualizations/animated-bar`),
 	datasetPreview: (dataset = 'merged_dataset', limit = 10) =>
-		fetchJSON(`${API_BASE}/api/datasets/${dataset}/preview?limit=${limit}`)
+		fetchJSON(`${API_BASE}/api/datasets/${dataset}/preview?limit=${limit}`),
+	// New endpoints for filtering and dashboard
+	getRegions: () => fetchJSON(`${API_BASE}/api/filters/regions`),
+	getEnergyTypes: () => fetchJSON(`${API_BASE}/api/filters/energy-types`),
+	getDashboard: () => fetchJSON(`${API_BASE}/api/dashboard`),
+	getFilteredAnalysis: (region, energyType, yearFrom, yearTo) => {
+		const params = new URLSearchParams();
+		if (region) params.append('region', region);
+		if (energyType) params.append('energy_type', energyType);
+		if (yearFrom) params.append('year_from', yearFrom);
+		if (yearTo) params.append('year_to', yearTo);
+		return fetchJSON(`${API_BASE}/api/analysis/filtered?${params.toString()}`);
+	},
+	getFilteredVisualizations: (regions, energyType, yearFrom, yearTo) => {
+		const params = new URLSearchParams();
+		if (regions && regions.length > 0) {
+			params.append('regions', regions.join(','));
+		}
+		if (energyType) params.append('energy_type', energyType);
+		if (yearFrom) params.append('year_from', yearFrom);
+		if (yearTo) params.append('year_to', yearTo);
+		return fetchJSON(`${API_BASE}/api/analysis/filtered/visualizations?${params.toString()}`);
+	}
 };

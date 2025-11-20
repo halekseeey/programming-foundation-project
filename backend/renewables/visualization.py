@@ -548,69 +548,6 @@ def make_regional_heatmap(
     return fig
 
 
-def make_regional_map(
-    df: pd.DataFrame,
-    geo_col: str,
-    value_col: str,
-    title: str = "Renewable Energy Adoption by Region"
-) -> go.Figure:
-    """
-    Create an interactive map displaying renewable energy adoption by region.
-    Uses Plotly's built-in country/region mapping.
-    
-    Args:
-        df: DataFrame with regional data (latest year)
-        geo_col: Column name for regions
-        value_col: Column name for values
-        title: Chart title
-    
-    Returns:
-        Plotly Figure
-    """
-    if df.empty:
-        fig = go.Figure()
-        fig.add_annotation(text="No data available", showarrow=False)
-        return fig
-    
-    # Filter out aggregated regions (EU, etc.) - only show individual countries
-    exclude_patterns = ['union', 'european', 'countries', 'euro area', 'eurozone']
-    df = df[
-        ~df[geo_col].astype(str).str.lower().str.contains('|'.join(exclude_patterns), na=False)
-    ]
-    
-    if df.empty:
-        fig = go.Figure()
-        fig.add_annotation(text="No data available", showarrow=False)
-        return fig
-    
-    # Prepare data for choropleth
-    # Use ISO country codes if available, otherwise use region names
-    fig = go.Figure(data=go.Choropleth(
-        locations=df[geo_col].tolist(),
-        z=df[value_col].tolist(),
-        text=df[geo_col].tolist(),
-        colorscale='Viridis',
-        colorbar=dict(title="Renewable Energy %"),
-        hovertemplate='<b>%{text}</b><br>Value: %{z:.2f}%<extra></extra>',
-        locationmode='country names'  # Plotly will try to match country names
-    ))
-    
-    fig.update_geos(
-        projection_type='natural earth',
-        showframe=False,
-        showcoastlines=True,
-        projection_scale=1.2
-    )
-    
-    fig.update_layout(
-        title=title,
-        template="plotly_dark",
-        height=600
-    )
-    
-    return fig
-
-
 def make_animated_regional_map(
     df: pd.DataFrame,
     geo_col: str,
@@ -725,48 +662,15 @@ def make_animated_regional_map(
         title=title,
         template="plotly_dark",
         height=600,
-        updatemenus=[{
-            'type': 'buttons',
-            'showactive': True,
-            'x': 1.0,
-            'xanchor': 'right',
-            'y': 0,
-            'yanchor': 'bottom',
-            'bgcolor': 'rgba(30, 41, 59, 0.95)',
-            'bordercolor': 'rgba(255, 255, 255, 0.3)',
-            'borderwidth': 1,
-            'buttons': [
-                {
-                    'label': 'Play',
-                    'method': 'animate',
-                    'args': [None, {
-                        'frame': {'duration': 500, 'redraw': True},
-                        'fromcurrent': True,
-                        'transition': {'duration': 300}
-                    }]
-                },
-                {
-                    'label': 'Pause',
-                    'method': 'animate',
-                    'args': [[None], {
-                        'frame': {'duration': 0, 'redraw': False},
-                        'mode': 'immediate',
-                        'transition': {'duration': 0}
-                    }]
-                }
-            ],
-            'font': {'color': '#1e293b', 'size': 12},
-            'active': -1,
-            'pad': {'t': 5, 'r': 5, 'b': 5, 'l': 5}
-        }],
         sliders=[{
             'active': 0,
-            'currentvalue': {'prefix': 'Year: '},
+            'currentvalue': {'prefix': 'Year: ', 'font': {'color': '#ededed'}},
+            'pad': {'t': 50},
             'steps': [{
                 'args': [[str(year)], {
-                    'frame': {'duration': 300, 'redraw': True},
+                    'frame': {'duration': 0, 'redraw': True},
                     'mode': 'immediate',
-                    'transition': {'duration': 300}
+                    'transition': {'duration': 0}
                 }],
                 'label': str(year),
                 'method': 'animate'

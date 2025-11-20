@@ -20,8 +20,8 @@ async function loadAnimatedMapChart() {
 				const chartId = 'animated-map-chart';
 				document.getElementById(containerId).innerHTML = `
                     <div>
-                        <h3 class="text-sm font-semibold mb-3">Animated Regional Map (Year-by-Year Evolution)</h3>
-                        <p class="text-xs text-slate-400 mb-3">Watch how renewable energy adoption evolves across regions over time. Use the play button or slider to control the animation.</p>
+                        <h3 class="text-sm font-semibold mb-3">Regional Map (Year-by-Year Evolution)</h3>
+                        <p class="text-xs text-slate-400 mb-3">Explore how renewable energy adoption evolves across regions over time. Use the slider below to select a year.</p>
                         <div class="bg-slate-800/60 rounded-xl p-4">
                             <div id="${chartId}" style="min-height: 400px;"></div>
                         </div>

@@ -16,14 +16,6 @@ async function loadAdditionalVisualizations() {
                 </div>
             </div>
             
-            <!-- Map Chart -->
-            <div id="map-chart-container">
-                <div class="text-center py-4">
-                    <div class="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-sky-500"></div>
-                    <p class="text-sm text-slate-400 mt-2">Loading map...</p>
-                </div>
-            </div>
-            
             <!-- Animated Map Chart -->
             <div id="animated-map-chart-container">
                 <div class="text-center py-4">
@@ -44,7 +36,6 @@ async function loadAdditionalVisualizations() {
 
 	// Load each chart independently (don't wait for others)
 	loadHeatmapChart();
-	loadMapChart();
 	loadAnimatedMapChart();
 	loadAnimatedBarChart();
 }

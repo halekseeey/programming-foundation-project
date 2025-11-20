@@ -1,5 +1,5 @@
-// Main application entry point
-async function loadAnalysisData() {
+// Main application entry point - renamed for clarity
+async function loadAllAnalysis() {
 	try {
 		const [globalTrends, energySources, regionsRanking, correlation] = await Promise.all([
 			API.globalTrends(),
@@ -31,5 +31,14 @@ async function loadAnalysisData() {
 	}
 }
 
-// Initialize on page load
-document.addEventListener('DOMContentLoaded', loadAnalysisData);
+// Initialize dashboard, filters, and analysis on page load
+document.addEventListener('DOMContentLoaded', async () => {
+	// Load dashboard
+	await renderDashboard();
+
+	// Load filters
+	await loadFilters();
+
+	// Load main analysis
+	await loadAllAnalysis();
+});

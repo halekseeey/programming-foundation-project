@@ -18,10 +18,10 @@ from renewables.visualization import (
     make_yearly_comparison_plot,
     make_sources_by_region_bar_chart,
     make_regional_heatmap,
-    make_regional_map,
     make_animated_regional_map,
     make_animated_regional_bar_chart
 )
+import plotly.graph_objs as go
 
 analytics_bp = Blueprint('analytics', __name__)
 
@@ -267,67 +267,6 @@ def heatmap_regional():
     return jsonify({"plot": fig_dict})
 
 
-@analytics_bp.get("/api/analysis/visualizations/map")
-def map_regional():
-    """
-    /api/analysis/visualizations/map?year=2023
-    Interactive map displaying renewable energy adoption by region.
-    """
-    from renewables.data_loader import load_dataset
-    
-    year = request.args.get("year", type=int)
-    
-    df = load_dataset("merged_dataset")
-    
-    geo_col = "geo"
-    year_col = "TIME_PERIOD"
-    value_col = None
-    
-    # Find renewable energy percentage column
-    obs_value_cols = [col for col in df.columns if col.startswith('OBS_VALUE_')]
-    for col in obs_value_cols:
-        if 'nrg_ind_ren' in col or 'ind_ren' in col.lower():
-            value_col = col
-            break
-    
-    if not value_col:
-        return jsonify({"error": "Renewable energy column not found"})
-    
-    # Filter to latest year or specified year
-    df[year_col] = pd.to_numeric(df[year_col], errors='coerce')
-    df[value_col] = pd.to_numeric(df[value_col], errors='coerce')
-    df = df.dropna(subset=[geo_col, year_col, value_col])
-    
-    if year:
-        df = df[df[year_col] == year]
-    else:
-        # Use latest year
-        latest_year = df[year_col].max()
-        df = df[df[year_col] == latest_year]
-    
-    # Get latest value per region
-    df_map = df.groupby(geo_col)[value_col].mean().reset_index()
-    
-    if df_map.empty:
-        return jsonify({"error": "No data available"})
-    
-    fig = make_regional_map(
-        df_map,
-        geo_col,
-        value_col,
-        f"Renewable Energy Adoption by Region ({df[year_col].max() if not year else year})"
-    )
-    
-    # Convert figure to dict and clean NaN values
-    # Use to_json() to ensure frames are included, then parse back to dict
-    import json
-    fig_json = fig.to_json()
-    fig_dict = json.loads(fig_json)
-    fig_dict = clean_plotly_dict_for_json(fig_dict)
-    
-    return jsonify({"plot": fig_dict})
-
-
 @analytics_bp.get("/api/analysis/visualizations/animated-map")
 def animated_map_regional():
     """
@@ -442,4 +381,308 @@ def animated_bar_regional():
     fig_dict = clean_plotly_dict_for_json(fig_dict)
     
     return jsonify({"plot": fig_dict})
+
+
+@analytics_bp.get("/api/filters/regions")
+def get_regions():
+    """
+    Get list of available regions (countries) for filtering.
+    """
+    from renewables.data_loader import load_dataset
+    
+    df = load_dataset("merged_dataset")
+    geo_col = "geo" if "geo" in df.columns else df.columns[0]
+    
+    # Filter out aggregated regions
+    exclude_patterns = ['union', 'european', 'countries', 'euro area', 'eurozone']
+    regions = df[geo_col].astype(str).unique().tolist()
+    regions = [
+        r for r in regions 
+        if not any(pattern in str(r).lower() for pattern in exclude_patterns)
+        and r != 'nan' and len(str(r)) < 100
+    ]
+    regions = sorted(regions)
+    
+    return jsonify({"regions": regions})
+
+
+@analytics_bp.get("/api/filters/energy-types")
+def get_energy_types():
+    """
+    Get list of available energy types (sources) for filtering.
+    """
+    from config import get_config
+    
+    cfg = get_config()
+    energy_file = cfg.DATA_CLEAN_DIR / "clean_nrg_bal.csv"
+    
+    if not energy_file.exists():
+        return jsonify({"energy_types": []})
+    
+    energy_df = pd.read_csv(energy_file)
+    source_col = "siec" if "siec" in energy_df.columns else None
+    
+    if not source_col:
+        return jsonify({"energy_types": []})
+    
+    # Filter out 'Total' and get unique sources
+    energy_types = energy_df[source_col].astype(str).unique().tolist()
+    energy_types = [e for e in energy_types if e != 'Total' and e != 'nan']
+    energy_types = sorted(energy_types)
+    
+    return jsonify({"energy_types": energy_types})
+
+
+@analytics_bp.get("/api/dashboard")
+def get_dashboard():
+    """
+    Get dashboard data with main insights.
+    Includes summary statistics and key metrics.
+    """
+    from renewables.analytics import (
+        analyze_global_trends,
+        evaluate_regions_ranking
+    )
+    
+    # Get global trends
+    global_trends = analyze_global_trends()
+    
+    # Get regions ranking
+    regions_ranking = evaluate_regions_ranking()
+    
+    # Calculate summary statistics
+    dashboard_data = {
+        "global_trends": {
+            "growth_rate": global_trends.get("overall_growth_rate", 0),
+            "trend_direction": global_trends.get("trend_direction", "stable"),
+            "latest_average": global_trends.get("yearly_averages", [{}])[-1].get("average_value", 0) if global_trends.get("yearly_averages") else 0
+        },
+        "top_regions": regions_ranking.get("leading_by_current_value", [])[:5] if regions_ranking.get("leading_by_current_value") else [],
+        "fastest_growing": regions_ranking.get("fastest_growing", [])[:5] if regions_ranking.get("fastest_growing") else [],
+        "lagging_regions": regions_ranking.get("lagging_regions", [])[:5] if regions_ranking.get("lagging_regions") else []
+    }
+    
+    return jsonify(dashboard_data)
+
+
+@analytics_bp.get("/api/analysis/filtered")
+def get_filtered_analysis():
+    """
+    Get filtered analysis by region and/or energy type.
+    /api/analysis/filtered?region=PT&energy_type=Solid fossil fuels
+    """
+    region = request.args.get("region")
+    energy_type = request.args.get("energy_type")
+    year_from = request.args.get("year_from", type=int)
+    year_to = request.args.get("year_to", type=int)
+    
+    result = {}
+    
+    # Get global trends filtered by region
+    if region:
+        from renewables.analytics import analyze_global_trends
+        trends = analyze_global_trends(year_from=year_from, year_to=year_to)
+        # Filter regional averages by selected region
+        if trends.get("regional_averages"):
+            filtered_regional = [
+                r for r in trends["regional_averages"] 
+                if str(r.get("region", "")).upper() == str(region).upper()
+            ]
+            trends["regional_averages"] = filtered_regional
+        result["global_trends"] = trends
+    
+    # Get energy sources filtered by region and/or energy type
+    if energy_type or region:
+        from renewables.analytics import compare_energy_sources
+        energy_data = compare_energy_sources(
+            year_from=year_from,
+            year_to=year_to,
+            country=region
+        )
+        # Filter by energy type if specified
+        if energy_type and energy_data.get("sources"):
+            filtered_sources = [
+                s for s in energy_data["sources"]
+                if str(s.get("source", "")).upper() == str(energy_type).upper()
+            ]
+            energy_data["sources"] = filtered_sources
+        result["energy_sources"] = energy_data
+    
+    # Get regions ranking filtered by region
+    if region:
+        from renewables.analytics import evaluate_regions_ranking
+        ranking = evaluate_regions_ranking(year_from=year_from, year_to=year_to)
+        # Filter to show only selected region
+        if ranking.get("leading_by_current_value"):
+            filtered_leading = [
+                r for r in ranking["leading_by_current_value"]
+                if str(r.get("region", "")).upper() == str(region).upper()
+            ]
+            ranking["leading_by_current_value"] = filtered_leading
+        result["regions_ranking"] = ranking
+    
+    return jsonify(result)
+
+
+@analytics_bp.get("/api/analysis/filtered/visualizations")
+def get_filtered_visualizations():
+    """
+    Get filtered visualizations based on regions (multiple) and/or energy type.
+    Works with the large clean_nrg_bal.csv dataset.
+    /api/analysis/filtered/visualizations?regions=PT,DE,FR&energy_type=Solid fossil fuels
+    """
+    from renewables.filtered_analytics import (
+        get_yearly_trends_by_regions,
+        get_energy_sources_by_regions,
+        get_time_series_by_energy_type
+    )
+    
+    # Get regions as comma-separated list
+    regions_param = request.args.get("regions", "")
+    regions = [r.strip() for r in regions_param.split(",") if r.strip()] if regions_param else []
+    
+    energy_type = request.args.get("energy_type")
+    year_from = request.args.get("year_from", type=int)
+    year_to = request.args.get("year_to", type=int)
+    
+    result = {}
+    
+    # Create yearly trends chart for multiple regions (if regions selected)
+    if regions and len(regions) > 0:
+        trends_data = get_yearly_trends_by_regions(regions, year_from, year_to)
+        
+        if "error" not in trends_data:
+            # Create multi-line chart for all selected regions
+            fig = go.Figure()
+            colors = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#6366f1']
+            
+            for idx, (region, data) in enumerate(trends_data.items()):
+                if data:
+                    years = [d['year'] for d in data]
+                    values = [d['average_value'] for d in data]
+                    fig.add_trace(go.Scatter(
+                        x=years,
+                        y=values,
+                        mode='lines+markers',
+                        name=region,
+                        line=dict(color=colors[idx % len(colors)], width=2),
+                        marker=dict(size=6),
+                        hovertemplate='<b>%{fullData.name}</b><br>Year: %{x}<br>Value: %{y:.2f} GWh<extra></extra>'
+                    ))
+            
+            if len(fig.data) > 0:
+                fig.update_layout(
+                    title=f"Yearly Trends Comparison - {', '.join(regions)}",
+                    xaxis_title="Year",
+                    yaxis_title="Average Energy (GWh)",
+                    template="plotly_dark",
+                    height=500,
+                    hovermode='x unified',
+                    legend=dict(
+                        x=0.02,
+                        y=0.98,
+                        bgcolor='rgba(0, 0, 0, 0.5)',
+                        bordercolor='rgba(255, 255, 255, 0.2)',
+                        borderwidth=1
+                    )
+                )
+                result["yearly_trends_plot"] = clean_plotly_dict_for_json(fig.to_dict())
+    
+    # Create energy sources distribution chart (if regions selected)
+    if regions and len(regions) > 0:
+        sources_data = get_energy_sources_by_regions(regions, year_from, year_to)
+        
+        if "error" not in sources_data:
+            # Create grouped bar chart comparing sources across selected regions
+            fig = go.Figure()
+            colors = ['rgba(56, 189, 248, 0.8)', 'rgba(16, 185, 129, 0.8)', 'rgba(251, 191, 36, 0.8)', 
+                      'rgba(239, 68, 68, 0.8)', 'rgba(139, 92, 246, 0.8)', 'rgba(236, 72, 153, 0.8)']
+            
+            # Get all unique sources across all regions
+            all_sources = set()
+            for region_data in sources_data.values():
+                if "sources" in region_data:
+                    all_sources.update([s["source"] for s in region_data["sources"]])
+            all_sources = sorted(list(all_sources))
+            
+            # Add trace for each region
+            for idx, region in enumerate(regions):
+                if region in sources_data and "sources" in sources_data[region]:
+                    region_sources = {s["source"]: s["value"] for s in sources_data[region]["sources"]}
+                    values = [region_sources.get(source, 0) for source in all_sources]
+                    fig.add_trace(go.Bar(
+                        name=region,
+                        x=all_sources,
+                        y=values,
+                        marker=dict(
+                            color=colors[idx % len(colors)],
+                            line=dict(color='rgba(255, 255, 255, 0.2)', width=1)
+                        ),
+                        hovertemplate='<b>%{fullData.name}</b><br>Source: %{x}<br>Value: %{y:,.0f} GWh<extra></extra>'
+                    ))
+            
+            if len(fig.data) > 0:
+                fig.update_layout(
+                    title=f"Energy Sources Distribution - {', '.join(regions)}",
+                    xaxis_title="Energy Source",
+                    yaxis_title="Energy (GWh)",
+                    template="plotly_dark",
+                    height=500,
+                    xaxis=dict(tickangle=-45),
+                    barmode='group',
+                    legend=dict(
+                        x=1.02,
+                        y=1,
+                        bgcolor='rgba(0, 0, 0, 0.5)',
+                        bordercolor='rgba(255, 255, 255, 0.2)',
+                        borderwidth=1
+                    )
+                )
+                result["sources_distribution_plot"] = clean_plotly_dict_for_json(fig.to_dict())
+    
+    # Create time series by energy type across regions (if energy type selected)
+    if energy_type:
+        timeseries_data = get_time_series_by_energy_type(energy_type, regions, year_from, year_to)
+        
+        if "error" not in timeseries_data:
+            # Create multi-line chart for all regions
+            fig = go.Figure()
+            colors = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#6366f1']
+            
+            for idx, (region, data) in enumerate(timeseries_data.items()):
+                if data:
+                    years = [d['year'] for d in data]
+                    values = [d['value'] for d in data]
+                    fig.add_trace(go.Scatter(
+                        x=years,
+                        y=values,
+                        mode='lines+markers',
+                        name=region,
+                        line=dict(color=colors[idx % len(colors)], width=2),
+                        marker=dict(size=6),
+                        hovertemplate='<b>%{fullData.name}</b><br>Year: %{x}<br>Value: %{y:,.0f} GWh<extra></extra>'
+                    ))
+            
+            if len(fig.data) > 0:
+                fig.update_layout(
+                    title=f"{energy_type} Trends Across Regions",
+                    xaxis_title="Year",
+                    yaxis_title="Energy (GWh)",
+                    template="plotly_dark",
+                    height=500,
+                    hovermode='x unified',
+                    legend=dict(
+                        x=0.02,
+                        y=0.98,
+                        bgcolor='rgba(0, 0, 0, 0.5)',
+                        bordercolor='rgba(255, 255, 255, 0.2)',
+                        borderwidth=1
+                    )
+                )
+                result["energy_type_timeseries_plot"] = clean_plotly_dict_for_json(fig.to_dict())
+    
+    if not result:
+        return jsonify({"error": "No visualizations available. Please select at least one region or energy type."})
+    
+    return jsonify(result)
 
