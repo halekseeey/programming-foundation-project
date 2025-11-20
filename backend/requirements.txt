@@ -9,6 +9,7 @@ MarkupSafe==3.0.3
 matplotlib
 seaborn
 plotly
+kaleido
 numpy==2.0.2
 pandas==2.3.3
 python-dateutil==2.9.0.post0

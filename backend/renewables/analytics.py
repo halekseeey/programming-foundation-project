@@ -6,7 +6,10 @@ from typing import Optional
 import pandas as pd
 import numpy as np
 
+from config import get_config
+from .data_loader import load_dataset
 
+cfg = get_config()
 def analyze_global_trends(year_from: Optional[int] = None, year_to: Optional[int] = None, value_col: Optional[str] = None) -> dict:
     """
     Identify overall trends in renewable energy growth over time.
@@ -22,9 +25,7 @@ def analyze_global_trends(year_from: Optional[int] = None, year_to: Optional[int
         - regional_averages: Average values by region
         - period: Time period analyzed
     """
-    from .data_loader import load_raw_renewables
-    
-    df = load_raw_renewables()
+    df = load_dataset("merged_dataset")
 
     # Find columns
     geo_col = "geo" if "geo" in df.columns else df.columns[0]
@@ -124,120 +125,143 @@ def analyze_global_trends(year_from: Optional[int] = None, year_to: Optional[int
 
 def compare_energy_sources(year_from: Optional[int] = None, year_to: Optional[int] = None, country: Optional[str] = None) -> dict:
     """
-    Compare different energy sources (solar, wind, hydro, biomass).
+    Compare different energy sources from the energy balance dataset.
     
     Uses the energy balances dataset (nrg_bal) with siec column to compare different energy sources.
-    Also includes renewable energy percentage context from merged data.
+    Compares available energy source types (Solid fossil fuels, Peat and peat products, 
+    Oil shale and oil sands, Manufactured gases, Total) by calculating statistics 
+    (average, total, min, max) and time series trends for each source.
     
     Returns:
         Dictionary with comparison data by energy source
     """
-    from .data_loader import load_raw_renewables
+    # Load cleaned energy balance dataset (retains all energy sources / siec values)
+    energy_file = cfg.DATA_CLEAN_DIR / "clean_nrg_bal.csv"
+    if not energy_file.exists():
+        return {"error": f"Clean energy balance dataset not found at {energy_file}"}
     
-    df = load_raw_renewables()
+    energy_df = pd.read_csv(energy_file)
     
-    # Find columns
-    geo_col = "geo" if "geo" in df.columns else df.columns[0]
-    year_col = None
-    for col_name in ["year", "Year", "TIME", "time", "TIME_PERIOD"]:
-        if col_name in df.columns:
-            year_col = col_name
-            break
+    energy_geo_col = "geo" if "geo" in energy_df.columns else energy_df.columns[0]
+    energy_year_col = "TIME_PERIOD" if "TIME_PERIOD" in energy_df.columns else energy_df.columns[1]
+    energy_value_col = "OBS_VALUE" if "OBS_VALUE" in energy_df.columns else energy_df.columns[-1]
     
-    # Find OBS_VALUE columns
-    obs_value_cols = [col for col in df.columns if col.startswith('OBS_VALUE_')]
-    if not obs_value_cols:
-        return {"error": "No OBS_VALUE columns found. Expected 2 merged datasets."}
-    
-    # Use energy balances dataset (nrg_bal) for energy source comparison
-    energy_balance_col = None
-    renewable_pct_col = None
-    
-    for col in obs_value_cols:
-        if 'nrg_bal' in col or 'bal' in col.lower():
-            energy_balance_col = col
-        elif 'nrg_ind_ren' in col or 'ind_ren' in col.lower():
-            renewable_pct_col = col
-    
-    if not energy_balance_col:
-        energy_balance_col = obs_value_cols[0]
-    
-    # Check for siec column for energy source classification
     source_col = None
-    if "siec" in df.columns:
+    if "siec" in energy_df.columns:
         source_col = "siec"
-    elif "nrg_bal" in df.columns:
+    elif "nrg_bal" in energy_df.columns:
         source_col = "nrg_bal"
     
-    if year_col not in df.columns:
-        return {"error": "Year column not found"}
+    if source_col is None:
+        return {"error": "Energy source column (siec or nrg_bal) not found in energy balance dataset"}
     
-    if not source_col:
-        return {"error": "Energy source column (siec or nrg_bal) not found in dataset"}
+    # Apply filters
+    if country:
+        energy_df = energy_df[energy_df[energy_geo_col].astype(str).str.contains(str(country), case=False, na=False)]
     
-    # Filter by country if specified
-    if country and geo_col in df.columns:
-        df = df[df[geo_col].astype(str).str.contains(str(country), case=False, na=False)]
-    
-    # Filter by year range
-    df[year_col] = pd.to_numeric(df[year_col], errors='coerce')
-    df[energy_balance_col] = pd.to_numeric(df[energy_balance_col], errors='coerce')
-    if renewable_pct_col:
-        df[renewable_pct_col] = pd.to_numeric(df[renewable_pct_col], errors='coerce')
+    energy_df[energy_year_col] = pd.to_numeric(energy_df[energy_year_col], errors='coerce')
+    energy_df[energy_value_col] = pd.to_numeric(energy_df[energy_value_col], errors='coerce')
     
     if year_from:
-        df = df[df[year_col] >= year_from]
+        energy_df = energy_df[energy_df[energy_year_col] >= year_from]
     if year_to:
-        df = df[df[year_col] <= year_to]
+        energy_df = energy_df[energy_df[energy_year_col] <= year_to]
     
-    # Remove rows where energy balance value is NaN
-    df = df.dropna(subset=[year_col, energy_balance_col, source_col])
-    
-    if len(df) == 0:
+    # Remove rows lacking necessary info
+    energy_df = energy_df.dropna(subset=[energy_year_col, energy_value_col, source_col])
+    if len(energy_df) == 0:
         return {"error": "No data available"}
     
     # Group by energy source and year
-    source_year_avg = df.groupby([source_col, year_col])[energy_balance_col].mean().reset_index()
+    source_year_avg = (
+        energy_df.groupby([source_col, energy_year_col])[energy_value_col]
+        .mean()
+        .reset_index()
+    )
     
-    # Get unique sources
-    sources = df[source_col].unique()
+    sources = energy_df[source_col].unique()
     
-    # Calculate statistics per source
+    # Calculate total energy across all sources for share calculation
+    total_energy_all_sources = energy_df[energy_value_col].sum()
+    
     source_stats = []
     for source in sources:
-        source_data = df[df[source_col] == source]
-        if len(source_data) > 0:
-            # Calculate average renewable percentage for this source (if available)
-            avg_renewable_pct = None
-            if renewable_pct_col and renewable_pct_col in source_data.columns:
-                renewable_values = source_data[renewable_pct_col].dropna()
-                if len(renewable_values) > 0:
-                    avg_renewable_pct = float(renewable_values.mean())
+        source_data = energy_df[energy_df[source_col] == source]
+        if len(source_data) == 0:
+            continue
+
+        # Use absolute values for statistics to avoid distortions from negative values (stock changes)
+        source_data_abs = source_data.copy()
+        source_data_abs[energy_value_col] = source_data_abs[energy_value_col].abs()
+        
+        # Calculate statistics on absolute values
+        source_total = float(source_data_abs[energy_value_col].sum())
+        source_avg = float(source_data_abs[energy_value_col].mean())
+        source_min = float(source_data_abs[energy_value_col].min())
+        source_max = float(source_data_abs[energy_value_col].max())
+        
+        # Calculate share of total energy consumption (using absolute values)
+        total_energy_abs = energy_df[energy_value_col].abs().sum()
+        share_of_total = (source_total / total_energy_abs * 100) if total_energy_abs > 0 else 0
+        
+        # Calculate growth rate (trend over time) using absolute values and percentage change
+        source_by_year = source_data_abs.groupby(energy_year_col)[energy_value_col].mean().sort_index()
+        growth_rate = None
+        
+        # Only calculate growth rate if there are non-zero values
+        if source_total > 0 and len(source_by_year) >= 2:
+            years = source_by_year.index.values
+            values = source_by_year.values
             
-            source_stats.append({
-                "source": str(source),
-                "average": float(source_data[energy_balance_col].mean()),
-                "total": float(source_data[energy_balance_col].sum()),
-                "min": float(source_data[energy_balance_col].min()),
-                "max": float(source_data[energy_balance_col].max()),
-                "data_points": int(len(source_data)),
-                "avg_renewable_pct": avg_renewable_pct  # Context from merged data
-            })
+            # Use percentage change per year instead of absolute change
+            # Calculate average annual percentage change
+            first_value = values[0]
+            last_value = values[-1]
+            num_years = years[-1] - years[0]
+            
+            if first_value > 0 and num_years > 0:
+                # Compound annual growth rate (CAGR)
+                if last_value > 0:
+                    growth_rate = ((last_value / first_value) ** (1.0 / num_years) - 1) * 100
+                else:
+                    growth_rate = -100.0  # Complete decline
+            else:
+                # Fallback to linear regression slope as percentage of average
+                coeffs = np.polyfit(years, values, 1)
+                avg_value = np.mean(values)
+                if avg_value > 0:
+                    growth_rate = (coeffs[0] / avg_value) * 100  # Percentage change per year
+                else:
+                    # If all values are zero, growth rate is undefined
+                    growth_rate = None
+        
+        # Convert growth_rate to float if it's a numpy type
+        if growth_rate is not None:
+            growth_rate = float(growth_rate)
+        
+        source_stats.append({
+            "source": str(source),
+            "average": source_avg,
+            "total": source_total,
+            "min": source_min,
+            "max": source_max,
+            "data_points": int(len(source_data)),
+            "share_of_total": float(share_of_total),
+            "growth_rate": growth_rate
+        })
     
-    # Time series by source
     source_timeseries = {}
     for source in sources:
-        source_data = source_year_avg[source_year_avg[source_col] == source].sort_values(year_col)
+        source_data = source_year_avg[source_year_avg[source_col] == source].sort_values(energy_year_col)
         source_timeseries[str(source)] = [
-            {"year": int(row[year_col]), "value": float(row[energy_balance_col])}
+            {"year": int(row[energy_year_col]), "value": float(row[energy_value_col])}
             for _, row in source_data.iterrows()
         ]
     
     return {
         "sources": source_stats,
         "timeseries_by_source": source_timeseries,
-        "source_column": source_col,
-        "renewable_pct_available": renewable_pct_col is not None
+        "source_column": source_col
     }
 
 
@@ -252,9 +276,7 @@ def evaluate_regions_ranking(year_from: Optional[int] = None, year_to: Optional[
     Returns:
         Dictionary with leading and lagging regions
     """
-    from .data_loader import load_raw_renewables
-    
-    df = load_raw_renewables()
+    df = load_dataset("merged_dataset")
     
     # Find columns
     geo_col = "geo" if "geo" in df.columns else df.columns[0]
@@ -297,6 +319,15 @@ def evaluate_regions_ranking(year_from: Optional[int] = None, year_to: Optional[
     if len(df) == 0:
         return {"error": "No data available"}
     
+    # Filter out aggregated regions (EU, etc.) - only show individual countries
+    exclude_patterns = ['union', 'european', 'countries', 'euro area', 'eurozone']
+    df = df[
+        ~df[geo_col].astype(str).str.lower().str.contains('|'.join(exclude_patterns), na=False)
+    ]
+    
+    if len(df) == 0:
+        return {"error": "No data available"}
+    
     # Calculate statistics per region
     region_stats = []
     
@@ -305,9 +336,13 @@ def evaluate_regions_ranking(year_from: Optional[int] = None, year_to: Optional[
         if len(region_data) < 2:
             continue
 
-        # Current adoption level (latest year average)
+        # Current adoption level (latest year value)
         latest_year = region_data[year_col].max()
-        current_value = region_data[region_data[year_col] == latest_year][primary_value_col].mean()
+        latest_year_data = region_data[region_data[year_col] == latest_year]
+        if len(latest_year_data) > 0:
+            current_value = latest_year_data[primary_value_col].iloc[0]
+        else:
+            continue
         
         # Growth rate (linear regression)
         years = region_data[year_col].values
@@ -323,7 +358,7 @@ def evaluate_regions_ranking(year_from: Optional[int] = None, year_to: Optional[
             
             region_stats.append({
                 "region": str(region),
-                "current_value": float(current_value),
+                "current_value": float(current_value),  # Used only for sorting, not returned
                 "growth_rate": float(growth_rate),
                 "total_change_pct": float(total_change_pct),
                 "first_value": float(first_val),
@@ -336,10 +371,14 @@ def evaluate_regions_ranking(year_from: Optional[int] = None, year_to: Optional[
     fastest_growing = sorted(region_stats, key=lambda x: x["growth_rate"], reverse=True)[:10]
     lagging = sorted(region_stats, key=lambda x: x["current_value"])[:10]
     
+    # Remove current_value from response (used only for sorting)
+    def remove_current_value(region_dict):
+        return {k: v for k, v in region_dict.items() if k != "current_value"}
+    
     return {
-        "leading_by_value": leading_by_value,
-        "fastest_growing": fastest_growing,
-        "lagging": lagging,
+        "leading_by_value": [remove_current_value(r) for r in leading_by_value],
+        "fastest_growing": [remove_current_value(r) for r in fastest_growing],
+        "lagging": [remove_current_value(r) for r in lagging],
         "total_regions": len(region_stats),
         "metric_used": "Renewable energy percentage (%)"
     }
@@ -361,12 +400,7 @@ def correlate_with_indicators(
     Returns:
         Dictionary with correlation analysis
     """
-    from .data_loader import load_raw_renewables
-    from pathlib import Path
-    from config import get_config
-    
-    cfg = get_config()
-    df = load_raw_renewables()
+    df = load_dataset("merged_dataset")
     
     # Find columns
     geo_col = "geo" if "geo" in df.columns else df.columns[0]
@@ -402,7 +436,7 @@ def correlate_with_indicators(
         df = df[df[geo_col].astype(str).str.contains(str(country), case=False, na=False)]
     
     # Filter by year range
-        df[year_col] = pd.to_numeric(df[year_col], errors='coerce')
+    df[year_col] = pd.to_numeric(df[year_col], errors='coerce')
     df[renewable_pct_col] = pd.to_numeric(df[renewable_pct_col], errors='coerce')
     if energy_balance_col:
         df[energy_balance_col] = pd.to_numeric(df[energy_balance_col], errors='coerce')
@@ -425,17 +459,11 @@ def correlate_with_indicators(
     # Try to load real GDP data from nama_10_gdp.csv file
     gdp_data = None
     if indicator.lower() == "gdp":
-        gdp_file = cfg.DATA_DIR / "nama_10_gdp.csv"
+        gdp_file = cfg.DATA_CLEAN_DIR / "clean_nama_10_gdp.csv"
         
         if gdp_file.exists():
             try:
                 gdp_df = pd.read_csv(gdp_file, sep=",", encoding='utf-8')
-                # Try alternative separators and encodings if needed
-                if len(gdp_df.columns) == 1:
-                    try:
-                        gdp_df = pd.read_csv(gdp_file, sep=";", encoding='utf-8')
-                    except:
-                        gdp_df = pd.read_csv(gdp_file, sep=",", encoding='latin-1')
                 
                 # Standardize column names (strip whitespace)
                 gdp_df.columns = gdp_df.columns.str.strip()

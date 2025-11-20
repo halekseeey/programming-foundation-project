@@ -6,15 +6,7 @@ import pandas as pd
 import math
 
 from config import get_config
-from renewables.data_loader import (
-    get_current_dataset,
-    get_current_datasets,
-    load_dataset,
-    set_current_dataset,
-    set_current_datasets,
-    set_cleaned_dataset,
-    get_cleaned_dataset
-)
+from renewables.data_loader import load_dataset
 
 datasets_bp = Blueprint('datasets', __name__)
 
@@ -27,71 +19,23 @@ def list_datasets():
     return jsonify(datasets=datasets)
 
 
-@datasets_bp.post("/api/datasets/select")
-def select_dataset():
-    """
-    Select dataset(s) to use for analysis.
-    POST body: {"dataset_id": "nrg_ind_ren"} or {"dataset_ids": ["nrg_ind_ren", "nrg_bal"]}
-    """
-    data = request.get_json() or {}
-    
-    # Support both single and multiple dataset selection
-    dataset_id = data.get("dataset_id")
-    dataset_ids = data.get("dataset_ids", [])
-    
-    # If single dataset_id provided, convert to list
-    if dataset_id and not dataset_ids:
-        dataset_ids = [dataset_id]
-    
-    if not dataset_ids:
-        return jsonify(error="dataset_id or dataset_ids is required"), 400
-    
-    # Verify all datasets exist
+def _get_dataset_preview(dataset_id, limit=10):
+    """Helper function to get dataset preview."""
     cfg = get_config()
     available_datasets = cfg.get_available_datasets()
     available_ids = {d["id"] for d in available_datasets}
     
-    invalid_ids = [did for did in dataset_ids if did not in available_ids]
-    if invalid_ids:
-        return jsonify(error=f"Datasets not found: {invalid_ids}"), 404
-    
-    # Set current dataset(s)
-    if len(dataset_ids) == 1:
-        set_current_dataset(dataset_ids[0])
-    else:
-        set_current_datasets(dataset_ids)
-    
-    return jsonify({
-        "dataset_ids": dataset_ids,
-        "current_datasets": get_current_datasets(),
-        "message": f"{len(dataset_ids)} dataset(s) selected successfully"
-    })
-
-
-@datasets_bp.get("/api/datasets/preview")
-def preview_dataset():
-    """Get preview of a dataset (first N rows)."""
-    dataset_id = request.args.get("dataset_id")
-    rows = request.args.get("rows", type=int, default=10)
-    
     if not dataset_id:
-        # Use current dataset if no ID provided
-        dataset_id = get_current_dataset()
-        if not dataset_id:
-            return jsonify(error="No dataset selected and dataset_id not provided"), 400
+        dataset_id = next(iter(available_ids), None)
+    
+    if not dataset_id or dataset_id not in available_ids:
+        return None, "Dataset not found"
     
     try:
-        # Check if cleaned dataset is available
-        cleaned_df = get_cleaned_dataset()
-        if cleaned_df is not None:
-            df = cleaned_df
-            print(f"Using cleaned dataset for preview: {len(df)} rows")
-        else:
-            df = load_dataset(dataset_id)
-            print(f"Using original dataset for preview: {len(df)} rows")
+        df = load_dataset(dataset_id)
         
         # Get preview
-        preview_df = df.head(rows)
+        preview_df = df.head(limit)
         
         # Convert to dict first
         preview_records = preview_df.to_dict(orient="records")
@@ -107,14 +51,41 @@ def preview_dataset():
                     if math.isnan(value) or math.isinf(value):
                         record[key] = None
         
-        return jsonify({
+        return {
             "dataset_id": dataset_id,
             "total_rows": len(df),
             "total_columns": len(df.columns),
             "columns": list(df.columns),
             "preview": preview_records,
             "dtypes": {col: str(dtype) for col, dtype in df.dtypes.items()}
-        })
+        }, None
     except Exception as e:
-        return jsonify(error=str(e)), 400
+        return None, str(e)
+
+
+@datasets_bp.get("/api/datasets/preview")
+def preview_dataset():
+    """Get preview of a dataset (first N rows)."""
+    dataset_id = request.args.get("dataset_id")
+    rows = request.args.get("rows", type=int, default=10)
+    
+    data, error = _get_dataset_preview(dataset_id, rows)
+    
+    if error:
+        return jsonify(error=error), 404 if error == "Dataset not found" else 400
+    
+    return jsonify(data)
+
+
+@datasets_bp.get("/api/datasets/<dataset_id>/preview")
+def preview_dataset_by_id(dataset_id):
+    """Get preview of a dataset by ID in URL path."""
+    limit = request.args.get("limit", type=int, default=10)
+    
+    data, error = _get_dataset_preview(dataset_id, limit)
+    
+    if error:
+        return jsonify(error=error), 404 if error == "Dataset not found" else 400
+    
+    return jsonify(data)
 

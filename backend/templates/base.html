@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EU Renewable Energy Explorer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        body {
+            background: #0a0a0a;
+            color: #ededed;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+    </style>
+</head>
+<body>
+    {% block content %}{% endblock %}
+    <!-- Load modules in order -->
+    <script src="{{ url_for('static', filename='js/api.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/utils.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/components/datasetPreview.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/components/globalTrends.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/components/energySources.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/components/regionsRanking.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/components/correlationAnalysis.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/components/additionalVisualizations.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
+

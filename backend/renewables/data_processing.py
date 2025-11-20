@@ -11,7 +11,6 @@ try:
 except ImportError:
     PYCOUNTRY_AVAILABLE = False
 
-from .data_loader import load_raw_renewables, filter_renewables
 
 
 def _get_iso_code_auto(country: str) -> Optional[str]:
@@ -63,36 +62,6 @@ def get_nuts_code(country: str) -> Optional[str]:
     
     # Return ISO code directly (NUTS codes typically use ISO 3166-1 alpha-2 codes)
     return iso_code
-
-
-def build_nuts_mapping_from_data(df: pd.DataFrame, geo_col: str = "geo") -> Dict[str, str]:
-    """
-    Automatically build NUTS code mapping from data by extracting unique countries
-    and determining their NUTS codes.
-    
-    Args:
-        df: DataFrame with geographic data
-        geo_col: Column name for geographic region
-    
-    Returns:
-        Dictionary mapping country names to NUTS codes
-    """
-    if geo_col not in df.columns:
-        return {}
-    
-    mapping = {}
-    unique_countries = df[geo_col].dropna().unique()
-    
-    for country in unique_countries:
-        if pd.isna(country):
-            continue
-        country_str = str(country).strip()
-        if country_str and country_str not in mapping:
-            nuts_code = get_nuts_code(country_str)
-            if nuts_code:
-                mapping[country_str] = nuts_code
-    
-    return mapping
 
 
 def clean_and_normalize_timeseries(
@@ -289,10 +258,8 @@ def add_nuts_codes(df: pd.DataFrame, geo_col: str = "geo", auto_build: bool = Tr
                                 failed_list.append(v_str)
                 except Exception as e:
                     # If conversion fails, just use the value as string
-                    print(f"Warning: Failed to process failed value {value}: {e}")
                     failed_list.append(str(value))
         except Exception as e:
-            print(f"Error in collecting failed values: {e}")
             # Fallback: just get unique values without counts
             failed_values = failed_df.dropna().unique()
             failed_list = [str(v).strip() for v in failed_values if str(v).strip() and str(v).strip().lower() != 'nan']
@@ -300,54 +267,6 @@ def add_nuts_codes(df: pd.DataFrame, geo_col: str = "geo", auto_build: bool = Tr
         stats["nuts_codes_failed_values"] = failed_list
     
     return df, stats
-
-
-
-
-def create_summary_table(
-    df: pd.DataFrame,
-    group_by: List[str],
-    value_col: str = "OBS_VALUE",
-    agg_functions: Optional[List[str]] = None
-) -> pd.DataFrame:
-    """
-    Create summary table grouped by specified columns.
-    
-    Args:
-        df: Input DataFrame
-        group_by: List of column names to group by
-        value_col: Column name for values to aggregate
-        agg_functions: List of aggregation functions
-            - "mean", "median", "sum", "min", "max", "count", "std"
-    
-    Returns:
-        Summary DataFrame
-    """
-    if agg_functions is None:
-        agg_functions = ["mean", "min", "max", "count"]
-    
-    # Check if columns exist
-    missing_cols = [col for col in group_by if col not in df.columns]
-    if missing_cols:
-        raise ValueError(f"Columns not found: {missing_cols}")
-    
-    if value_col not in df.columns:
-        raise ValueError(f"Value column not found: {value_col}")
-    
-    # Convert value column to numeric
-    df = df.copy()
-    df[value_col] = pd.to_numeric(df[value_col], errors='coerce')
-    
-    # Group and aggregate
-    grouped = df.groupby(group_by)[value_col].agg(agg_functions)
-    
-    # Flatten column names if multi-level
-    if isinstance(grouped.columns, pd.MultiIndex):
-        grouped.columns = [f"{col[0]}_{col[1]}" if col[1] else col[0] for col in grouped.columns]
-    else:
-        grouped.columns = [f"{value_col}_{col}" for col in grouped.columns]
-    
-    return grouped.reset_index()
 
 
 def get_data_quality_report(df: pd.DataFrame) -> Dict:
@@ -385,77 +304,4 @@ def get_data_quality_report(df: pd.DataFrame) -> Dict:
     return report
 
 
-def normalize_timeseries_by_region(
-    df: pd.DataFrame,
-    geo_col: str = "geo",
-    year_col: str = "TIME_PERIOD",
-    value_col: str = "OBS_VALUE",
-    method: str = "min_max"
-) -> pd.DataFrame:
-    """
-    Normalize time-series values by region.
-    
-    Args:
-        df: Input DataFrame
-        geo_col: Column name for geographic region
-        year_col: Column name for year
-        value_col: Column name for values
-        method: Normalization method
-            - "min_max": Scale to [0, 1]
-            - "z_score": Standardize (mean=0, std=1)
-            - "percentile": Rank-based normalization
-    
-    Returns:
-        DataFrame with normalized values in new column 'normalized_value'
-    """
-    df = df.copy()
-    
-    if value_col not in df.columns:
-        return df
-    
-    df[value_col] = pd.to_numeric(df[value_col], errors='coerce')
-    
-    if method == "min_max":
-        if geo_col in df.columns:
-            def normalize_group(group):
-                min_val = group[value_col].min()
-                max_val = group[value_col].max()
-                if max_val != min_val:
-                    return (group[value_col] - min_val) / (max_val - min_val)
-                return group[value_col] * 0  # All zeros if constant
-            df['normalized_value'] = df.groupby(geo_col)[value_col].transform(normalize_group)
-        else:
-            min_val = df[value_col].min()
-            max_val = df[value_col].max()
-            if max_val != min_val:
-                df['normalized_value'] = (df[value_col] - min_val) / (max_val - min_val)
-            else:
-                df['normalized_value'] = 0
-    
-    elif method == "z_score":
-        if geo_col in df.columns:
-            def standardize_group(group):
-                mean_val = group[value_col].mean()
-                std_val = group[value_col].std()
-                if std_val != 0:
-                    return (group[value_col] - mean_val) / std_val
-                return group[value_col] * 0
-            df['normalized_value'] = df.groupby(geo_col)[value_col].transform(standardize_group)
-        else:
-            mean_val = df[value_col].mean()
-            std_val = df[value_col].std()
-            if std_val != 0:
-                df['normalized_value'] = (df[value_col] - mean_val) / std_val
-            else:
-                df['normalized_value'] = 0
-    
-    elif method == "percentile":
-        if geo_col in df.columns:
-            df['normalized_value'] = df.groupby(geo_col)[value_col].transform(
-                lambda x: x.rank(pct=True)
-            )
-        else:
-            df['normalized_value'] = df[value_col].rank(pct=True)
-    
-    return df
 
