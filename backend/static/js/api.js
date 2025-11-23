@@ -49,5 +49,11 @@ const API = {
 		if (yearFrom) params.append('year_from', yearFrom);
 		if (yearTo) params.append('year_to', yearTo);
 		return fetchJSON(`${API_BASE}/api/analysis/forecast?${params.toString()}`);
+	},
+	getMergedDatasetAnalysis: (yearFrom, yearTo) => {
+		const params = new URLSearchParams();
+		if (yearFrom) params.append('year_from', yearFrom);
+		if (yearTo) params.append('year_to', yearTo);
+		return fetchJSON(`${API_BASE}/api/analysis/merged-dataset?${params.toString()}`);
 	}
 };

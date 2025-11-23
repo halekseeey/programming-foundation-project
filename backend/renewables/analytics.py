@@ -270,15 +270,6 @@ def evaluate_regions_ranking(year_from: Optional[int] = None, year_to: Optional[
     if len(df) == 0:
         return {"error": "No data available"}
     
-    # Filter out aggregated regions (EU, etc.) - only show individual countries
-    exclude_patterns = ['union', 'european', 'countries', 'euro area', 'eurozone']
-    df = df[
-        ~df[geo_col].astype(str).str.lower().str.contains('|'.join(exclude_patterns), na=False)
-    ]
-
-    if len(df) == 0:
-        return {"error": "No data available"}
-    
     # Calculate statistics per region
     region_stats = []
     
@@ -375,7 +366,7 @@ def correlate_with_indicators(
     
     # Remove rows where renewable percentage is NaN
     df = df.dropna(subset=[year_col, renewable_pct_col])
-        
+
     if len(df) == 0:
         return {"error": "No data available"}
     
@@ -636,7 +627,7 @@ def forecast_renewable_energy(
         {"year": int(year), "value": float(value)}
         for year, value in zip(all_years, trend_line_values)
     ]
-    
+
     return {
         "historical_data": historical,
         "forecast_data": forecast,
@@ -652,4 +643,119 @@ def forecast_renewable_energy(
             "from": int(forecast_years[0]),
             "to": int(forecast_years[-1])
         }
+    }
+
+
+def analyze_merged_dataset(year_from: Optional[int] = None, year_to: Optional[int] = None) -> dict:
+    """
+    Analyze merged dataset to show correlations between production volume and renewable share.
+    
+    This function demonstrates the value of merging production and renewable share data:
+    - Correlation analysis between production volume and renewable share
+    - Calculation of absolute renewable energy production
+    - Trend analysis over time
+    - Regional comparisons
+    
+    Args:
+        year_from: Start year filter
+        year_to: End year filter
+    
+    Returns:
+        Dictionary with analysis results including correlations, metrics, and regional data
+    """
+    # Load merged dataset
+    df = load_dataset("merged_dataset")
+    
+    # Column names
+    geo_col = "geo"
+    year_col = "TIME_PERIOD"
+    production_col = "OBS_VALUE_nrg_bal"
+    renewable_share_col = "OBS_VALUE_nrg_ind_ren"
+    
+    # Convert to numeric
+    df[year_col] = pd.to_numeric(df[year_col], errors='coerce')
+    df[production_col] = pd.to_numeric(df[production_col], errors='coerce')
+    df[renewable_share_col] = pd.to_numeric(df[renewable_share_col], errors='coerce')
+    
+    # Filter by year range
+    if year_from:
+        df = df[df[year_col] >= year_from]
+    if year_to:
+        df = df[df[year_col] <= year_to]
+    
+    # Filter out rows where both values are missing
+    df = df.dropna(subset=[geo_col, year_col])
+    
+    # Calculate absolute renewable energy production (production * renewable_share / 100)
+    df['absolute_renewable'] = (df[production_col] * df[renewable_share_col] / 100)
+    
+    # 1. Overall correlation between production and renewable share
+    valid_corr = df[[production_col, renewable_share_col]].dropna()
+    correlation = None
+    if len(valid_corr) >= 2:
+        correlation = float(valid_corr[production_col].corr(valid_corr[renewable_share_col]))
+    
+    # 2. Yearly trends
+    yearly_stats = []
+    for year in sorted(df[year_col].dropna().unique()):
+        year_data = df[df[year_col] == year]
+        year_data_valid = year_data[[production_col, renewable_share_col, 'absolute_renewable']].dropna()
+        
+        if len(year_data_valid) > 0:
+            yearly_stats.append({
+                "year": int(year),
+                "avg_production": float(year_data_valid[production_col].mean()),
+                "avg_renewable_share": float(year_data_valid[renewable_share_col].mean()),
+                "avg_absolute_renewable": float(year_data_valid['absolute_renewable'].mean()),
+                "total_regions": len(year_data_valid)
+            })
+    
+    # 3. Top regions by absolute renewable production (latest year)
+    latest_year = df[year_col].max()
+    if pd.notna(latest_year):
+        latest_data = df[df[year_col] == latest_year]
+        latest_data_valid = latest_data[[geo_col, production_col, renewable_share_col, 'absolute_renewable']].dropna()
+        
+        top_absolute = latest_data_valid.nlargest(10, 'absolute_renewable')[
+            [geo_col, production_col, renewable_share_col, 'absolute_renewable']
+        ].to_dict(orient='records')
+        
+        top_share = latest_data_valid.nlargest(10, renewable_share_col)[
+            [geo_col, production_col, renewable_share_col, 'absolute_renewable']
+        ].to_dict(orient='records')
+    else:
+        top_absolute = []
+        top_share = []
+    
+    # 4. Regional data for scatter plot (latest year with both values)
+    if pd.notna(latest_year):
+        scatter_data = df[df[year_col] == latest_year][
+            [geo_col, production_col, renewable_share_col, 'absolute_renewable']
+        ].dropna().to_dict(orient='records')
+    else:
+        scatter_data = []
+    
+    # 5. Summary statistics
+    all_valid = df[[production_col, renewable_share_col, 'absolute_renewable']].dropna()
+    summary = {}
+    if len(all_valid) > 0:
+        summary = {
+            "total_records": len(df),
+            "valid_records": len(all_valid),
+            "avg_production": float(all_valid[production_col].mean()),
+            "avg_renewable_share": float(all_valid[renewable_share_col].mean()),
+            "avg_absolute_renewable": float(all_valid['absolute_renewable'].mean()),
+            "max_production": float(all_valid[production_col].max()),
+            "max_renewable_share": float(all_valid[renewable_share_col].max()),
+            "max_absolute_renewable": float(all_valid['absolute_renewable'].max())
+        }
+    
+    return {
+        "correlation": correlation,
+        "yearly_trends": yearly_stats,
+        "top_regions_absolute": top_absolute,
+        "top_regions_share": top_share,
+        "scatter_data": scatter_data,
+        "summary": summary,
+        "latest_year": int(latest_year) if pd.notna(latest_year) else None
     }

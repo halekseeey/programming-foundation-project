@@ -23,6 +23,11 @@ function renderRegionsRanking(data) {
 					? `
                 <div>
                     <h3 class="text-sm font-semibold mb-3">Leading by Current Value</h3>
+                    <p class="text-xs text-slate-500 mb-2">
+                        <strong>Growth rate:</strong> Average annual increase in percentage points per year (linear regression slope). 
+                        <strong>Change:</strong> Total percentage change from first to last available value. 
+                        <strong>Data points:</strong> Number of years with available data.
+                    </p>
                     <div class="h-[300px] overflow-y-auto space-y-2">
                         ${data.leading_by_value
 							.map(
@@ -71,6 +76,11 @@ function renderRegionsRanking(data) {
 					? `
                 <div>
                     <h3 class="text-sm font-semibold mb-3">Fastest Growing</h3>
+                    <p class="text-xs text-slate-500 mb-2">
+                        <strong>Growth rate:</strong> Average annual increase in percentage points per year (linear regression slope). 
+                        <strong>Last available:</strong> Last available value (latest year in dataset). 
+                        <strong>Change:</strong> Total percentage change from first to last available value.
+                    </p>
                     <div class="h-[300px] overflow-y-auto space-y-2">
                         ${data.fastest_growing
 							.map(
@@ -91,7 +101,7 @@ function renderRegionsRanking(data) {
                                             </span>
                                         </div>
                                         <div class="flex items-center gap-2">
-                                            <span class="text-slate-400">Current:</span>
+                                            <span class="text-slate-400">Last available:</span>
                                             <span class="font-semibold">${region.last_value.toFixed(2)}</span>
                                         </div>
                                         <div class="flex items-center gap-2">
@@ -119,6 +129,11 @@ function renderRegionsRanking(data) {
 					? `
                 <div>
                     <h3 class="text-sm font-semibold mb-3">Lagging Regions</h3>
+                    <p class="text-xs text-slate-500 mb-2">
+                        <strong>Growth rate:</strong> Average annual increase in percentage points per year (linear regression slope). 
+                        <strong>Change:</strong> Total percentage change from first to last available value. 
+                        <strong>Data points:</strong> Number of years with available data.
+                    </p>
                     <div class="h-[300px] overflow-y-auto space-y-2">
                         ${data.lagging
 							.map(

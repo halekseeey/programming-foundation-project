@@ -99,16 +99,6 @@ Annual,Terajoule,Estonia,2020,183952.07,16/12/24 23:00:00,30.069,19/09/24 23:00:
 Annual,Terajoule,Estonia,2021,184532.15,16/12/24 23:00:00,37.342,19/09/24 23:00:00,Percentage,Renewable energy - overall,EE
 Annual,Terajoule,Estonia,2022,196451.398,16/12/24 23:00:00,38.542,19/09/24 23:00:00,Percentage,Renewable energy - overall,EE
 Annual,Terajoule,Estonia,2023,192615.824,16/12/24 23:00:00,40.95,19/09/24 23:00:00,Percentage,Renewable energy - overall,EE
-Annual,Terajoule,European Union - 27 countries (from 2020),2014,28204146.408,16/12/24 23:00:00,17.416,19/09/24 23:00:00,Percentage,Renewable energy - overall,
-Annual,Terajoule,European Union - 27 countries (from 2020),2015,27551738.011,16/12/24 23:00:00,17.82,19/09/24 23:00:00,Percentage,Renewable energy - overall,
-Annual,Terajoule,European Union - 27 countries (from 2020),2016,26897791.056,16/12/24 23:00:00,17.978,19/09/24 23:00:00,Percentage,Renewable energy - overall,
-Annual,Terajoule,European Union - 27 countries (from 2020),2017,26832960.955,16/12/24 23:00:00,18.411,19/09/24 23:00:00,Percentage,Renewable energy - overall,
-Annual,Terajoule,European Union - 27 countries (from 2020),2018,26687323.63,16/12/24 23:00:00,19.096,19/09/24 23:00:00,Percentage,Renewable energy - overall,
-Annual,Terajoule,European Union - 27 countries (from 2020),2019,25878447.36,16/12/24 23:00:00,19.887,19/09/24 23:00:00,Percentage,Renewable energy - overall,
-Annual,Terajoule,European Union - 27 countries (from 2020),2020,23996367.569,16/12/24 23:00:00,22.038,19/09/24 23:00:00,Percentage,Renewable energy - overall,
-Annual,Terajoule,European Union - 27 countries (from 2020),2021,25044157.614,16/12/24 23:00:00,21.894,19/09/24 23:00:00,Percentage,Renewable energy - overall,
-Annual,Terajoule,European Union - 27 countries (from 2020),2022,23570775.308,16/12/24 23:00:00,23.058,19/09/24 23:00:00,Percentage,Renewable energy - overall,
-Annual,Terajoule,European Union - 27 countries (from 2020),2023,23160680.729,16/12/24 23:00:00,24.555,19/09/24 23:00:00,Percentage,Renewable energy - overall,
 Annual,Terajoule,Finland,2014,746109.318,16/12/24 23:00:00,38.633,19/09/24 23:00:00,Percentage,Renewable energy - overall,FI
 Annual,Terajoule,Finland,2015,721307.882,16/12/24 23:00:00,39.23,19/09/24 23:00:00,Percentage,Renewable energy - overall,FI
 Annual,Terajoule,Finland,2016,724168.611,16/12/24 23:00:00,38.943,19/09/24 23:00:00,Percentage,Renewable energy - overall,FI
@@ -198,16 +188,6 @@ Annual,Terajoule,Italy,2020,1569191.814,16/12/24 23:00:00,20.359,19/09/24 23:00:
 Annual,Terajoule,Italy,2021,1552394.832,16/12/24 23:00:00,18.883,19/09/24 23:00:00,Percentage,Renewable energy - overall,IT
 Annual,Terajoule,Italy,2022,1453231.793,16/12/24 23:00:00,19.131,19/09/24 23:00:00,Percentage,Renewable energy - overall,IT
 Annual,Terajoule,Italy,2023,1512737.192,16/12/24 23:00:00,19.594,19/09/24 23:00:00,Percentage,Renewable energy - overall,IT
-Annual,Terajoule,Kosovo*,2014,67201.536,16/12/24 23:00:00,19.544,19/09/24 23:00:00,Percentage,Renewable energy - overall,
-Annual,Terajoule,Kosovo*,2015,75536.312,16/12/24 23:00:00,18.484,19/09/24 23:00:00,Percentage,Renewable energy - overall,
-Annual,Terajoule,Kosovo*,2016,84386.227,16/12/24 23:00:00,24.472,19/09/24 23:00:00,Percentage,Renewable energy - overall,
-Annual,Terajoule,Kosovo*,2017,75065.573,16/12/24 23:00:00,23.082,19/09/24 23:00:00,Percentage,Renewable energy - overall,
-Annual,Terajoule,Kosovo*,2018,76294.987,16/12/24 23:00:00,24.616,19/09/24 23:00:00,Percentage,Renewable energy - overall,
-Annual,Terajoule,Kosovo*,2019,77418.798,16/12/24 23:00:00,24.215,19/09/24 23:00:00,Percentage,Renewable energy - overall,
-Annual,Terajoule,Kosovo*,2020,79591.426,16/12/24 23:00:00,24.401,19/09/24 23:00:00,Percentage,Renewable energy - overall,
-Annual,Terajoule,Kosovo*,2021,81078.855,16/12/24 23:00:00,22.14,19/09/24 23:00:00,Percentage,Renewable energy - overall,
-Annual,Terajoule,Kosovo*,2022,75197.939,16/12/24 23:00:00,18.779,19/09/24 23:00:00,Percentage,Renewable energy - overall,
-Annual,Terajoule,Kosovo*,2023,65326.543,16/12/24 23:00:00,18.779,,,,
 Annual,Terajoule,Latvia,2014,99659.773,16/12/24 23:00:00,38.629,19/09/24 23:00:00,Percentage,Renewable energy - overall,LV
 Annual,Terajoule,Latvia,2015,97900.307,16/12/24 23:00:00,37.538,19/09/24 23:00:00,Percentage,Renewable energy - overall,LV
 Annual,Terajoule,Latvia,2016,102456.285,16/12/24 23:00:00,37.138,19/09/24 23:00:00,Percentage,Renewable energy - overall,LV

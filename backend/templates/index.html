@@ -11,72 +11,12 @@
         </div>
     </header>
 
-    <section class="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 space-y-4">
-        <div class="flex items-start justify-between gap-4">
-            <div class="flex-1 space-y-3">
-                <h3 class="text-sm font-semibold text-white">Dataset Merge Information</h3>
-
-                <div class="text-xs text-slate-300 space-y-3">
-                    <div>
-                        <p class="font-semibold text-slate-200 mb-1">Merged Dataset Concept:</p>
-                        <p>
-                            For each <code class="bg-slate-800 px-1 rounded">country + year</code> combination, we
-                            combine two metrics in a single row:
-                        </p>
-                    </div>
-
-                    <div class="bg-slate-800/40 rounded-lg p-3 space-y-2">
-                        <div>
-                            <p class="font-semibold text-sky-300 mb-1">
-                                <code class="bg-slate-700 px-1 rounded">OBS_VALUE_nrg_bal</code> — Primary Energy
-                                Production
-                            </p>
-                            <p class="text-slate-400 ml-2">
-                                From the <code class="bg-slate-700 px-1 rounded">nrg_bal</code> dataset, we use only
-                                the "Primary production" category with "Total" aggregation (sum across
-                                all energy sources). Unit: Terajoule.
-                            </p>
-                        </div>
-
-                        <div>
-                            <p class="font-semibold text-green-300 mb-1">
-                                <code class="bg-slate-700 px-1 rounded">OBS_VALUE_nrg_ind_ren</code> — Renewable
-                                Energy Percentage
-                            </p>
-                            <p class="text-slate-400 ml-2">
-                                From the <code class="bg-slate-700 px-1 rounded">nrg_ind_ren</code> dataset, we take
-                                the renewable energy percentage of total production. Unit: percentage (%).
-                            </p>
-                        </div>
-                    </div>
-
-                    <div>
-                        <p class="font-semibold text-slate-200 mb-1">Purpose:</p>
-                        <p>
-                            This allows analyzing correlations between primary energy production volume and the share of
-                            renewable sources. For example, you can see if the renewable energy share grows with
-                            increasing total production, or vice versa.
-                        </p>
-                    </div>
-
-                    <div class="text-slate-400 italic">
-                        <p>
-                            <strong>Note:</strong> Empty values (NaN) indicate that data is missing for that country-year
-                            combination in the corresponding dataset.
-                        </p>
-                    </div>
-                </div>
-            </div>
-            <div class="flex-shrink-0">
-                <button
-                    id="load-preview-btn"
-                    class="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white text-sm font-semibold rounded-lg transition-colors"
-                >
-                    Load Preview
-                </button>
-            </div>
+    <!-- Merged Dataset Analysis Container -->
+    <div id="merged-dataset-analysis-container">
+        <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-6">
+            <p class="text-slate-400">Loading merged dataset analysis...</p>
         </div>
-    </section>
+    </div>
 
     <!-- Loading State -->
     <section id="loading-section" class="bg-slate-900/60 border border-slate-800 rounded-2xl p-6 space-y-4">

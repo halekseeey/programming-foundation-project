@@ -282,12 +282,6 @@ def make_sources_by_region_bar_chart(
         fig.add_annotation(text="No data available", showarrow=False)
         return fig
     
-    # Filter out aggregated regions (EU, etc.) - only show individual countries
-    exclude_patterns = ['union', 'european', 'countries', 'euro area', 'eurozone']
-    region_source_data = region_source_data[
-        ~region_source_data[geo_col].astype(str).str.lower().str.contains('|'.join(exclude_patterns), na=False)
-    ]
-    
     if region_source_data.empty:
         fig = go.Figure()
         fig.add_annotation(text="No data available", showarrow=False)
@@ -380,12 +374,6 @@ def make_regional_heatmap(
         fig.add_annotation(text="No data available", showarrow=False)
         return fig
     
-    # Filter out aggregated regions (EU, etc.) - only show individual countries
-    exclude_patterns = ['union', 'european', 'countries', 'euro area', 'eurozone']
-    df = df[
-        ~df[geo_col].astype(str).str.lower().str.contains('|'.join(exclude_patterns), na=False)
-    ]
-    
     if df.empty:
         fig = go.Figure()
         fig.add_annotation(text="No data available", showarrow=False)
@@ -467,12 +455,6 @@ def make_animated_regional_map(
         fig = go.Figure()
         fig.add_annotation(text="No data available", showarrow=False)
         return fig
-    
-    # Filter out aggregated regions (EU, etc.) - only show individual countries
-    exclude_patterns = ['union', 'european', 'countries', 'euro area', 'eurozone']
-    df = df[
-        ~df[geo_col].astype(str).str.lower().str.contains('|'.join(exclude_patterns), na=False)
-    ]
     
     if df.empty:
         fig = go.Figure()
@@ -599,12 +581,6 @@ def make_animated_regional_bar_chart(
         fig = go.Figure()
         fig.add_annotation(text="No data available", showarrow=False)
         return fig
-    
-    # Filter out aggregated regions (EU, etc.) - only show individual countries
-    exclude_patterns = ['union', 'european', 'countries', 'euro area', 'eurozone']
-    df = df[
-        ~df[geo_col].astype(str).str.lower().str.contains('|'.join(exclude_patterns), na=False)
-    ]
     
     if df.empty:
         fig = go.Figure()
@@ -849,6 +825,153 @@ def make_forecast_plot(
         title=title,
         xaxis_title="Year",
         yaxis_title="Renewable Energy Share (%)",
+        template="plotly_dark",
+        height=500,
+        hovermode='x unified',
+        legend=dict(
+            x=0.02,
+            y=0.98,
+            bgcolor='rgba(0, 0, 0, 0.5)',
+            bordercolor='rgba(255, 255, 255, 0.2)',
+            borderwidth=1
+        )
+    )
+    
+    return fig
+
+
+def make_merged_dataset_scatter_plot(scatter_data: list, title: str = "Production vs Renewable Share") -> go.Figure:
+    """
+    Create scatter plot showing correlation between production volume and renewable share.
+    
+    Args:
+        scatter_data: List of dicts with keys: geo, OBS_VALUE_nrg_bal, OBS_VALUE_nrg_ind_ren, absolute_renewable
+        title: Plot title
+    
+    Returns:
+        Plotly figure
+    """
+    if not scatter_data:
+        # Return empty figure
+        fig = go.Figure()
+        fig.add_annotation(
+            text="No data available",
+            xref="paper", yref="paper",
+            x=0.5, y=0.5, showarrow=False
+        )
+        return fig
+    
+    # Extract data
+    regions = [d.get('geo', '') for d in scatter_data]
+    production = [d.get('OBS_VALUE_nrg_bal', 0) for d in scatter_data]
+    renewable_share = [d.get('OBS_VALUE_nrg_ind_ren', 0) for d in scatter_data]
+    absolute_renewable = [d.get('absolute_renewable', 0) for d in scatter_data]
+    
+    # Create scatter plot with size based on absolute renewable
+    fig = go.Figure()
+    
+    max_abs = max(absolute_renewable) if absolute_renewable else 1
+    
+    fig.add_trace(go.Scatter(
+        x=production,
+        y=renewable_share,
+        mode='markers',
+        marker=dict(
+            size=[max(5, min(30, abs_val / max_abs * 30)) if max_abs > 0 else 10 for abs_val in absolute_renewable],
+            color=absolute_renewable,
+            colorscale='Viridis',
+            showscale=True,
+            colorbar=dict(title="Absolute Renewable<br>(TJ)")
+        ),
+        text=regions,
+        hovertemplate='<b>%{text}</b><br>' +
+                      'Production: %{x:,.0f} TJ<br>' +
+                      'Renewable Share: %{y:.1f}%<br>' +
+                      'Absolute Renewable: %{marker.color:,.0f} TJ<extra></extra>',
+        name='Regions'
+    ))
+    
+    fig.update_layout(
+        title=title,
+        xaxis_title="Primary Energy Production (Terajoule)",
+        yaxis_title="Renewable Energy Share (%)",
+        template="plotly_dark",
+        height=500,
+        hovermode='closest'
+    )
+    
+    return fig
+
+
+def make_merged_dataset_trends_plot(yearly_stats: list, title: str = "Production and Renewable Trends Over Time") -> go.Figure:
+    """
+    Create line plot showing trends of production and renewable share over time.
+    
+    Args:
+        yearly_stats: List of dicts with keys: year, avg_production, avg_renewable_share, avg_absolute_renewable
+        title: Plot title
+    
+    Returns:
+        Plotly figure
+    """
+    if not yearly_stats:
+        fig = go.Figure()
+        fig.add_annotation(
+            text="No data available",
+            xref="paper", yref="paper",
+            x=0.5, y=0.5, showarrow=False
+        )
+        return fig
+    
+    years = [s['year'] for s in yearly_stats]
+    avg_production = [s['avg_production'] for s in yearly_stats]
+    avg_renewable_share = [s['avg_renewable_share'] for s in yearly_stats]
+    avg_absolute_renewable = [s['avg_absolute_renewable'] for s in yearly_stats]
+    
+    fig = go.Figure()
+    
+    # Production (left axis)
+    fig.add_trace(go.Scatter(
+        x=years,
+        y=avg_production,
+        mode='lines+markers',
+        name='Avg Production (TJ)',
+        line=dict(color='#3b82f6', width=2),
+        yaxis='y'
+    ))
+    
+    # Renewable share (right axis)
+    fig.add_trace(go.Scatter(
+        x=years,
+        y=avg_renewable_share,
+        mode='lines+markers',
+        name='Avg Renewable Share (%)',
+        line=dict(color='#10b981', width=2),
+        yaxis='y2'
+    ))
+    
+    # Absolute renewable (left axis, secondary)
+    fig.add_trace(go.Scatter(
+        x=years,
+        y=avg_absolute_renewable,
+        mode='lines+markers',
+        name='Avg Absolute Renewable (TJ)',
+        line=dict(color='#8b5cf6', width=2, dash='dash'),
+        yaxis='y'
+    ))
+    
+    fig.update_layout(
+        title=title,
+        xaxis_title="Year",
+        yaxis=dict(
+            title="Energy (Terajoule)",
+            side='left'
+        ),
+        yaxis2=dict(
+            title="Renewable Share (%)",
+            side='right',
+            overlaying='y'
+        ),
         template="plotly_dark",
         height=500,
         hovermode='x unified',

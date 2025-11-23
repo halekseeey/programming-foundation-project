@@ -15,8 +15,8 @@ async function renderDashboard() {
 		const avgGrowthRate = globalTrends.overall_growth_rate || 0;
 		const trendDirection = globalTrends.trend_direction || 'stable';
 		const topRegions = globalTrends.top_regions || [];
-		const leadingRegions = regionsRanking.leading_by_value || [];
-		const fastestGrowing = regionsRanking.fastest_growing || [];
+		const leadingRegions = regionsRanking?.leading_by_value || [];
+		const fastestGrowing = regionsRanking?.fastest_growing || [];
 		// Get top energy sources by share_of_total
 		const topEnergySources = (energySources.sources || [])
 			.sort((a, b) => (b.share_of_total || 0) - (a.share_of_total || 0))

@@ -48,6 +48,15 @@ def clean_nrg_ind_ren() -> pd.DataFrame:
     # Drop rows without TIME_PERIOD or OBS_VALUE
     df = df.dropna(subset=["TIME_PERIOD", "OBS_VALUE"])
 
+    # Filter out aggregated regions (EU, Euro area, etc.) - only keep individual countries
+    rows_before_agg_filter = len(df)
+    exclude_patterns = ['union', 'european', 'countries', 'euro area', 'eurozone']
+    # Get list of regions that will be removed
+    mask = df["geo"].astype(str).str.lower().str.contains('|'.join(exclude_patterns), na=False)
+    removed_regions = sorted(df[mask]["geo"].unique().tolist())
+    df = df[~mask]
+    rows_removed_aggregated = rows_before_agg_filter - len(df)
+
     # Remove duplicate rows (same geo, TIME_PERIOD, and other key columns)
     # Keep first occurrence
     dedup_cols = ["geo", "TIME_PERIOD", "nrg_bal", "unit"]
@@ -55,6 +64,9 @@ def clean_nrg_ind_ren() -> pd.DataFrame:
     if len(available_dedup_cols) >= 2:  # Need at least geo and TIME_PERIOD
         df = df.drop_duplicates(subset=available_dedup_cols, keep='first')
 
+    # Store metadata about removed aggregated regions
+    df.attrs['rows_removed_aggregated'] = rows_removed_aggregated
+    df.attrs['removed_aggregated_regions'] = removed_regions
     return df
 
 
@@ -93,6 +105,15 @@ def clean_energy_balance() -> pd.DataFrame:
     # Drop rows without TIME_PERIOD or OBS_VALUE
     df = df.dropna(subset=["TIME_PERIOD", "OBS_VALUE"])
 
+    # Filter out aggregated regions (EU, Euro area, etc.) - only keep individual countries
+    rows_before_agg_filter = len(df)
+    exclude_patterns = ['union', 'european', 'countries', 'euro area', 'eurozone']
+    # Get list of regions that will be removed
+    mask = df["geo"].astype(str).str.lower().str.contains('|'.join(exclude_patterns), na=False)
+    removed_regions = sorted(df[mask]["geo"].unique().tolist())
+    df = df[~mask]
+    rows_removed_aggregated = rows_before_agg_filter - len(df)
+
     # Remove duplicate rows (same geo, TIME_PERIOD, siec, unit)
     # Keep first occurrence
     dedup_cols = ["geo", "TIME_PERIOD", "nrg_bal", "siec", "unit"]
@@ -100,6 +121,9 @@ def clean_energy_balance() -> pd.DataFrame:
     if len(available_dedup_cols) >= 2:  # Need at least geo and TIME_PERIOD
         df = df.drop_duplicates(subset=available_dedup_cols, keep='first')
 
+    # Store metadata about removed aggregated regions
+    df.attrs['rows_removed_aggregated'] = rows_removed_aggregated
+    df.attrs['removed_aggregated_regions'] = removed_regions
     return df
 
 
@@ -129,6 +153,15 @@ def clean_gdp_dataset() -> pd.DataFrame:
 
     df = df.dropna(subset=["geo", "TIME_PERIOD", "OBS_VALUE"])
 
+    # Filter out aggregated regions (EU, Euro area, etc.) - only keep individual countries
+    rows_before_agg_filter = len(df)
+    exclude_patterns = ['union', 'european', 'countries', 'euro area', 'eurozone']
+    # Get list of regions that will be removed
+    mask = df["geo"].astype(str).str.lower().str.contains('|'.join(exclude_patterns), na=False)
+    removed_regions = sorted(df[mask]["geo"].unique().tolist())
+    df = df[~mask]
+    rows_removed_aggregated = rows_before_agg_filter - len(df)
+
     # Remove duplicate rows (same geo, TIME_PERIOD, unit)
     # Keep first occurrence
     dedup_cols = ["geo", "TIME_PERIOD"]
@@ -138,6 +171,9 @@ def clean_gdp_dataset() -> pd.DataFrame:
     if len(available_dedup_cols) >= 2:  # Need at least geo and TIME_PERIOD
         df = df.drop_duplicates(subset=available_dedup_cols, keep='first')
 
+    # Store metadata about removed aggregated regions
+    df.attrs['rows_removed_aggregated'] = rows_removed_aggregated
+    df.attrs['removed_aggregated_regions'] = removed_regions
     return df
 
 
@@ -295,6 +331,8 @@ def preprocess_all_datasets() -> Dict[str, any]:
         # Step 1: Clean renewable share dataset
         ren_df = clean_nrg_ind_ren()
         stats["ren_rows_after"] = len(ren_df)
+        stats["ren_rows_removed_aggregated"] = ren_df.attrs.get('rows_removed_aggregated', 0)
+        stats["ren_removed_aggregated_regions"] = ren_df.attrs.get('removed_aggregated_regions', [])
         
         # Store quality report
         ren_raw = pd.read_csv(cfg.DATA_RAW_DIR / "nrg_ind_ren.csv")
@@ -308,6 +346,8 @@ def preprocess_all_datasets() -> Dict[str, any]:
         # Step 2: Clean energy balance dataset
         bal_df = clean_energy_balance()
         stats["bal_rows_after"] = len(bal_df)
+        stats["bal_rows_removed_aggregated"] = bal_df.attrs.get('rows_removed_aggregated', 0)
+        stats["bal_removed_aggregated_regions"] = bal_df.attrs.get('removed_aggregated_regions', [])
         
         # Store quality report
         bal_raw = pd.read_csv(cfg.DATA_RAW_DIR / "nrg_bal.csv")
@@ -321,6 +361,8 @@ def preprocess_all_datasets() -> Dict[str, any]:
         # Step 3: Clean GDP dataset for analytics
         gdp_df = clean_gdp_dataset()
         stats["gdp_rows_after"] = len(gdp_df)
+        stats["gdp_rows_removed_aggregated"] = gdp_df.attrs.get('rows_removed_aggregated', 0)
+        stats["gdp_removed_aggregated_regions"] = gdp_df.attrs.get('removed_aggregated_regions', [])
 
         gdp_raw = pd.read_csv(cfg.DATA_RAW_DIR / "nama_10_gdp.csv")
         stats["gdp_quality_report"] = get_data_quality_report(gdp_raw)
@@ -352,7 +394,14 @@ def preprocess_all_datasets() -> Dict[str, any]:
         stats["nuts_codes_added"] = int(nuts_stats.get("nuts_codes_added", 0))
         stats["nuts_codes_failed"] = int(nuts_stats.get("nuts_codes_failed", 0))
         
-        # Step 5: Save merged dataset
+        # Step 5: Filter to keep only rows with NUTS codes
+        rows_before_filter = len(merged_df)
+        merged_df = merged_df[merged_df['nuts_code'].notna()]
+        rows_after_filter = len(merged_df)
+        stats["merged_rows_after_nuts_filter"] = rows_after_filter
+        stats["merged_rows_removed_no_nuts"] = rows_before_filter - rows_after_filter
+        
+        # Step 6: Save merged dataset
         merged_file = cfg.DATA_CLEAN_DIR / "merged_dataset.csv"
         merged_df.to_csv(merged_file, index=False)
         
@@ -377,6 +426,12 @@ def format_preprocessing_stats(stats: Dict[str, any]) -> None:
     # Renewable energy dataset
     print("\n📊 Renewable Energy Dataset (nrg_ind_ren):")
     print(f"   Rows: {stats['ren_rows_before']} → {stats['ren_rows_after']} (after cleaning)")
+    ren_agg_removed = stats.get("ren_rows_removed_aggregated", 0)
+    ren_agg_regions = stats.get("ren_removed_aggregated_regions", [])
+    if ren_agg_removed > 0:
+        print(f"   Removed aggregated regions: {ren_agg_removed} rows")
+        if ren_agg_regions:
+            print(f"   Removed regions: {', '.join(ren_agg_regions)}")
     ren_qual = stats.get("ren_quality_report", {})
     if ren_qual:
         missing = ren_qual.get("missing_values", {})
@@ -389,10 +444,16 @@ def format_preprocessing_stats(stats: Dict[str, any]) -> None:
     # Energy balance dataset
     print("\n📊 Energy Balance Dataset (nrg_bal):")
     print(f"   Rows: {stats['bal_rows_before']} → {stats['bal_rows_after']} (after cleaning)")
+    bal_agg_removed = stats.get("bal_rows_removed_aggregated", 0)
+    bal_agg_regions = stats.get("bal_removed_aggregated_regions", [])
+    if bal_agg_removed > 0:
+        print(f"   Removed aggregated regions: {bal_agg_removed} rows")
+        if bal_agg_regions:
+            print(f"   Removed regions: {', '.join(bal_agg_regions)}")
     removed_bal = stats["bal_rows_before"] - stats["bal_rows_after"]
     if removed_bal > 0:
         pct = (removed_bal / stats["bal_rows_before"]) * 100
-        print(f"   Removed: {removed_bal} rows ({pct:.2f}%)")
+        print(f"   Total removed: {removed_bal} rows ({pct:.2f}%)")
     bal_qual = stats.get("bal_quality_report", {})
     if bal_qual:
         missing = bal_qual.get("missing_values", {})
@@ -406,6 +467,12 @@ def format_preprocessing_stats(stats: Dict[str, any]) -> None:
     if stats.get("gdp_rows_before"):
         print("\n📊 GDP Dataset (nama_10_gdp):")
         print(f"   Rows: {stats['gdp_rows_before']} → {stats['gdp_rows_after']} (after cleaning)")
+        gdp_agg_removed = stats.get("gdp_rows_removed_aggregated", 0)
+        gdp_agg_regions = stats.get("gdp_removed_aggregated_regions", [])
+        if gdp_agg_removed > 0:
+            print(f"   Removed aggregated regions: {gdp_agg_removed} rows")
+            if gdp_agg_regions:
+                print(f"   Removed regions: {', '.join(gdp_agg_regions)}")
         gdp_qual = stats.get("gdp_quality_report", {})
         if gdp_qual:
             missing = gdp_qual.get("missing_values", {})

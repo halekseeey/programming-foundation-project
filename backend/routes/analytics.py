@@ -11,7 +11,8 @@ from renewables.analytics import (
     compare_energy_sources,
     evaluate_regions_ranking,
     correlate_with_indicators,
-    forecast_renewable_energy
+    forecast_renewable_energy,
+    analyze_merged_dataset
 )
 from renewables.visualization import (
     make_yearly_averages_plot,
@@ -21,7 +22,9 @@ from renewables.visualization import (
     make_regional_heatmap,
     make_animated_regional_map,
     make_animated_regional_bar_chart,
-    make_forecast_plot
+    make_forecast_plot,
+    make_merged_dataset_scatter_plot,
+    make_merged_dataset_trends_plot
 )
 import plotly.graph_objs as go
 
@@ -93,13 +96,6 @@ def energy_sources():
         
         # Filter out 'Total' source as it's an aggregation
         energy_df = energy_df[energy_df[source_col] != 'Total']
-        
-        # Filter out aggregated regions (EU, etc.)
-        # Exclude regions containing: union, european, countries, euro area, etc.
-        exclude_patterns = ['union', 'european', 'countries', 'euro area', 'eurozone']
-        energy_df = energy_df[
-            ~energy_df[energy_geo_col].astype(str).str.lower().str.contains('|'.join(exclude_patterns), na=False)
-        ]
         
         # Aggregate by region and source
         region_source_df = energy_df.groupby([energy_geo_col, source_col])[energy_value_col].sum().reset_index()
@@ -370,13 +366,11 @@ def get_regions():
     df = load_dataset("merged_dataset")
     geo_col = "geo"
     
-    # Filter out aggregated regions
-    exclude_patterns = ['union', 'european', 'countries', 'euro area', 'eurozone']
+    # Get unique regions (aggregated regions already filtered during dataset cleaning)
     regions = df[geo_col].astype(str).unique().tolist()
     regions = [
         r for r in regions 
-        if not any(pattern in str(r).lower() for pattern in exclude_patterns)
-        and r != 'nan' and len(str(r)) < 100
+        if r != 'nan' and len(str(r)) < 100
     ]
     regions = sorted(regions)
     
@@ -750,4 +744,34 @@ def get_forecast():
         forecast_data["forecast_plot"] = clean_plotly_dict_for_json(fig.to_dict())
     
     return jsonify(forecast_data)
+
+
+@analytics_bp.get("/api/analysis/merged-dataset")
+def get_merged_dataset_analysis():
+    """
+    Analyze merged dataset to show correlations between production volume and renewable share.
+    /api/analysis/merged-dataset?year_from=2010&year_to=2023
+    """
+    year_from = request.args.get("year_from", type=int)
+    year_to = request.args.get("year_to", type=int)
+    
+    analysis_data = analyze_merged_dataset(year_from=year_from, year_to=year_to)
+    
+    # Generate scatter plot
+    if analysis_data.get("scatter_data"):
+        scatter_fig = make_merged_dataset_scatter_plot(
+            analysis_data["scatter_data"],
+            "Production Volume vs Renewable Share (Latest Year)"
+        )
+        analysis_data["scatter_plot"] = clean_plotly_dict_for_json(scatter_fig.to_dict())
+    
+    # Generate trends plot
+    if analysis_data.get("yearly_trends"):
+        trends_fig = make_merged_dataset_trends_plot(
+            analysis_data["yearly_trends"],
+            "Production and Renewable Energy Trends Over Time"
+        )
+        analysis_data["trends_plot"] = clean_plotly_dict_for_json(trends_fig.to_dict())
+    
+    return jsonify(analysis_data)
 

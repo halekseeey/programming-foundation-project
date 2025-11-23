@@ -58,12 +58,6 @@ def get_filtered_energy_data(
     if energy_type:
         energy_df = energy_df[energy_df[source_col].astype(str).str.contains(str(energy_type), case=False, na=False)]
     
-    # Filter out aggregated regions
-    exclude_patterns = ['union', 'european', 'countries', 'euro area', 'eurozone']
-    energy_df = energy_df[
-        ~energy_df[geo_col].astype(str).str.lower().str.contains('|'.join(exclude_patterns), na=False)
-    ]
-    
     # Filter out 'Total' source
     energy_df = energy_df[energy_df[source_col] != 'Total']
     

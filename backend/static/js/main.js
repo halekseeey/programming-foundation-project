@@ -36,7 +36,10 @@ async function loadAllAnalysis() {
 
 // Initialize filters and analysis on page load
 document.addEventListener('DOMContentLoaded', async () => {
-	// Load dashboard first
+	// Load merged dataset analysis first
+	await renderMergedDatasetAnalysis();
+
+	// Load dashboard
 	await renderDashboard();
 
 	// Load filters
