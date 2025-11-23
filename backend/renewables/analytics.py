@@ -540,3 +540,116 @@ def correlate_with_indicators(
             for year in sorted(years)
         ]
     }
+
+
+def forecast_renewable_energy(
+    region: Optional[str] = None,
+    years_ahead: int = 5,
+    year_from: Optional[int] = None,
+    year_to: Optional[int] = None
+) -> dict:
+    """
+    Simple forecasting model to estimate future renewable energy shares.
+    
+    Uses linear regression on historical data to extrapolate future values.
+    
+    Args:
+        region: Optional region code to forecast for specific region
+        years_ahead: Number of years to forecast (default: 5)
+        year_from: Start year for historical data
+        year_to: End year for historical data
+    
+    Returns:
+        Dictionary with forecast data including:
+        - historical_data: List of historical year-value pairs
+        - forecast_data: List of forecast year-value pairs
+        - trend_line: Linear regression coefficients
+        - r_squared: Model fit quality
+    """
+    df = load_dataset("clean_nrg_ind_ren")
+    
+    geo_col = "geo"
+    year_col = "TIME_PERIOD"
+    value_col = "OBS_VALUE"
+    
+    # Filter by region if specified
+    if region:
+        df = df[df[geo_col].astype(str).str.contains(str(region), case=False, na=False)]
+    
+    # Filter by year range
+    df[year_col] = pd.to_numeric(df[year_col], errors='coerce')
+    df[value_col] = pd.to_numeric(df[value_col], errors='coerce')
+    df = df.dropna(subset=[year_col, value_col])
+    
+    if year_from:
+        df = df[df[year_col] >= year_from]
+    if year_to:
+        df = df[df[year_col] <= year_to]
+    
+    if len(df) == 0:
+        return {"error": "No data available for forecasting"}
+    
+    # Aggregate by year (average across regions if no specific region)
+    yearly_data = df.groupby(year_col)[value_col].mean().sort_index()
+    
+    if len(yearly_data) < 2:
+        return {"error": "Insufficient data for forecasting (need at least 2 years)"}
+    
+    # Prepare data for regression
+    years = yearly_data.index.values.astype(float)
+    values = yearly_data.values.astype(float)
+    
+    # Linear regression
+    coeffs = np.polyfit(years, values, 1)
+    slope = coeffs[0]
+    intercept = coeffs[1]
+    
+    # Calculate R-squared for model quality
+    predicted_historical = np.polyval(coeffs, years)
+    ss_res = np.sum((values - predicted_historical) ** 2)
+    ss_tot = np.sum((values - np.mean(values)) ** 2)
+    r_squared = 1 - (ss_res / ss_tot) if ss_tot > 0 else 0
+    
+    # Historical data
+    historical = [
+        {"year": int(year), "value": float(value)}
+        for year, value in zip(years, values)
+    ]
+    
+    # Forecast future years
+    last_year = int(years[-1])
+    forecast_years = np.arange(last_year + 1, last_year + 1 + years_ahead)
+    forecast_values = np.polyval(coeffs, forecast_years)
+    
+    # Ensure forecast values don't go below 0 or above 100 (percentage)
+    forecast_values = np.clip(forecast_values, 0, 100)
+    
+    forecast = [
+        {"year": int(year), "value": float(value)}
+        for year, value in zip(forecast_years, forecast_values)
+    ]
+    
+    # Calculate trend line for visualization
+    all_years = np.concatenate([years, forecast_years])
+    trend_line_values = np.polyval(coeffs, all_years)
+    trend_line = [
+        {"year": int(year), "value": float(value)}
+        for year, value in zip(all_years, trend_line_values)
+    ]
+    
+    return {
+        "historical_data": historical,
+        "forecast_data": forecast,
+        "trend_line": trend_line,
+        "model": {
+            "slope": float(slope),
+            "intercept": float(intercept),
+            "r_squared": float(r_squared),
+            "model_type": "linear_regression"
+        },
+        "region": region if region else "Global Average",
+        "forecast_period": {
+            "from": int(forecast_years[0]),
+            "to": int(forecast_years[-1])
+        }
+    }

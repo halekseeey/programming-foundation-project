@@ -41,5 +41,13 @@ const API = {
 		if (yearFrom) params.append('year_from', yearFrom);
 		if (yearTo) params.append('year_to', yearTo);
 		return fetchJSON(`${API_BASE}/api/analysis/filtered/visualizations?${params.toString()}`);
+	},
+	getForecast: (region, yearsAhead, yearFrom, yearTo) => {
+		const params = new URLSearchParams();
+		if (region) params.append('region', region);
+		if (yearsAhead) params.append('years_ahead', yearsAhead);
+		if (yearFrom) params.append('year_from', yearFrom);
+		if (yearTo) params.append('year_to', yearTo);
+		return fetchJSON(`${API_BASE}/api/analysis/forecast?${params.toString()}`);
 	}
 };

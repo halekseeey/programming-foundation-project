@@ -766,3 +766,99 @@ def make_animated_regional_bar_chart(
     )
     
     return fig
+
+
+def make_forecast_plot(
+    historical_data: list,
+    forecast_data: list,
+    trend_line: list = None,
+    region: str = "Global Average",
+    title: str = None
+) -> go.Figure:
+    """
+    Create a forecast plot showing historical data and future predictions.
+    
+    Args:
+        historical_data: List of dicts with 'year' and 'value' keys
+        forecast_data: List of dicts with 'year' and 'value' keys
+        trend_line: Optional list of dicts with 'year' and 'value' for trend line
+        region: Region name for title
+        title: Optional custom title
+    
+    Returns:
+        Plotly Figure
+    """
+    if not title:
+        title = f"Renewable Energy Forecast - {region}"
+    
+    fig = go.Figure()
+    
+    # Historical data
+    if historical_data:
+        hist_years = [d['year'] for d in historical_data]
+        hist_values = [d['value'] for d in historical_data]
+        fig.add_trace(go.Scatter(
+            x=hist_years,
+            y=hist_values,
+            mode='lines+markers',
+            name='Historical Data',
+            line=dict(color='rgba(56, 189, 248, 1.0)', width=3),
+            marker=dict(color='rgba(56, 189, 248, 1.0)', size=8),
+            hovertemplate='<b>Historical</b><br>Year: %{x}<br>Value: %{y:.2f}%<extra></extra>'
+        ))
+    
+    # Forecast data
+    if forecast_data:
+        forecast_years = [d['year'] for d in forecast_data]
+        forecast_values = [d['value'] for d in forecast_data]
+        fig.add_trace(go.Scatter(
+            x=forecast_years,
+            y=forecast_values,
+            mode='lines+markers',
+            name='Forecast',
+            line=dict(color='rgba(16, 185, 129, 1.0)', width=3, dash='dash'),
+            marker=dict(color='rgba(16, 185, 129, 1.0)', size=8),
+            hovertemplate='<b>Forecast</b><br>Year: %{x}<br>Predicted: %{y:.2f}%<extra></extra>'
+        ))
+    
+    # Trend line (optional, can show full trend including forecast)
+    if trend_line:
+        trend_years = [d['year'] for d in trend_line]
+        trend_values = [d['value'] for d in trend_line]
+        fig.add_trace(go.Scatter(
+            x=trend_years,
+            y=trend_values,
+            mode='lines',
+            name='Trend Line',
+            line=dict(color='rgba(251, 191, 36, 0.6)', width=2, dash='dot'),
+            hovertemplate='<b>Trend</b><br>Year: %{x}<br>Value: %{y:.2f}%<extra></extra>'
+        ))
+    
+    # Add vertical line separating historical and forecast
+    if historical_data and forecast_data:
+        last_hist_year = max([d['year'] for d in historical_data])
+        fig.add_vline(
+            x=last_hist_year + 0.5,
+            line_dash="dash",
+            line_color="rgba(255, 255, 255, 0.3)",
+            annotation_text="Forecast Start",
+            annotation_position="top"
+        )
+    
+    fig.update_layout(
+        title=title,
+        xaxis_title="Year",
+        yaxis_title="Renewable Energy Share (%)",
+        template="plotly_dark",
+        height=500,
+        hovermode='x unified',
+        legend=dict(
+            x=0.02,
+            y=0.98,
+            bgcolor='rgba(0, 0, 0, 0.5)',
+            bordercolor='rgba(255, 255, 255, 0.2)',
+            borderwidth=1
+        )
+    )
+    
+    return fig

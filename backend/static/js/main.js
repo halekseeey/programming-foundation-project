@@ -19,6 +19,9 @@ async function loadAllAnalysis() {
 		renderCorrelationAnalysis(correlation);
 		loadAdditionalVisualizations();
 
+		// Load forecast (global average, 5 years ahead)
+		renderForecast(null, 5);
+
 		// Setup dataset preview modal (don't load preview automatically)
 		setupDatasetPreviewModal();
 	} catch (error) {

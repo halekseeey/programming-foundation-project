@@ -10,7 +10,8 @@ from renewables.analytics import (
     analyze_global_trends,
     compare_energy_sources,
     evaluate_regions_ranking,
-    correlate_with_indicators
+    correlate_with_indicators,
+    forecast_renewable_energy
 )
 from renewables.visualization import (
     make_yearly_averages_plot,
@@ -19,7 +20,8 @@ from renewables.visualization import (
     make_sources_by_region_bar_chart,
     make_regional_heatmap,
     make_animated_regional_map,
-    make_animated_regional_bar_chart
+    make_animated_regional_bar_chart,
+    make_forecast_plot
 )
 import plotly.graph_objs as go
 
@@ -714,4 +716,38 @@ def get_filtered_data_csv():
         mimetype="text/csv",
         headers={"Content-Disposition": "attachment; filename=filtered_data.csv"}
     )
+
+
+@analytics_bp.get("/api/analysis/forecast")
+def get_forecast():
+    """
+    Get renewable energy forecast for a region or global average.
+    /api/analysis/forecast?region=DE&years_ahead=5&year_from=2010&year_to=2023
+    """
+    region = request.args.get("region")
+    years_ahead = request.args.get("years_ahead", type=int, default=5)
+    year_from = request.args.get("year_from", type=int)
+    year_to = request.args.get("year_to", type=int)
+    
+    forecast_data = forecast_renewable_energy(
+        region=region,
+        years_ahead=years_ahead,
+        year_from=year_from,
+        year_to=year_to
+    )
+    
+    if "error" in forecast_data:
+        return jsonify(forecast_data), 400
+    
+    # Generate visualization
+    if forecast_data.get("historical_data") and forecast_data.get("forecast_data"):
+        fig = make_forecast_plot(
+            historical_data=forecast_data["historical_data"],
+            forecast_data=forecast_data["forecast_data"],
+            trend_line=forecast_data.get("trend_line", []),
+            region=forecast_data.get("region", "Global Average")
+        )
+        forecast_data["forecast_plot"] = clean_plotly_dict_for_json(fig.to_dict())
+    
+    return jsonify(forecast_data)
 
