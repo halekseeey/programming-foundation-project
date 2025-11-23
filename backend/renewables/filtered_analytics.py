@@ -30,12 +30,9 @@ def get_filtered_energy_data(
     Returns:
         Filtered DataFrame
     """
-    energy_file = cfg.DATA_CLEAN_DIR / "clean_nrg_bal.csv"
-    
-    if not energy_file.exists():
-        return pd.DataFrame()
-    
-    energy_df = pd.read_csv(energy_file)
+
+    energy_df = load_dataset("clean_nrg_bal")
+
     
     # Column names
     geo_col = "geo"
@@ -110,6 +107,10 @@ def get_yearly_trends_by_regions(
                 for _, row in region_data.iterrows()
             ]
     
+    # If no data found for any selected region, return error
+    if not result:
+        return {"error": f"No data available for selected regions: {', '.join(regions)}"}
+    
     return result
 
 
@@ -154,6 +155,10 @@ def get_energy_sources_by_regions(
                     for _, row in region_data.iterrows()
                 ]
             }
+    
+    # If no data found for any selected region, return error
+    if not result:
+        return {"error": f"No data available for selected regions: {', '.join(regions)}"}
     
     return result
 
@@ -200,6 +205,14 @@ def get_time_series_by_energy_type(
             {"year": int(row[year_col]), "value": float(row[value_col])}
             for _, row in region_data.iterrows()
         ]
+    
+    # If no data found, return error
+    if not result:
+        filter_info = []
+        if regions:
+            filter_info.append(f"regions: {', '.join(regions)}")
+        filter_info.append(f"energy type: {energy_type}")
+        return {"error": f"No data available for selected filters ({', '.join(filter_info)})"}
     
     return result
 

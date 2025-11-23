@@ -340,6 +340,18 @@ async function applyFilters() {
 
 	if (!filteredContainer || !chartsContainer) return;
 
+	// Ensure variables are defined and updated from checkboxes
+	if (typeof selectedRegions === 'undefined') {
+		selectedRegions = [];
+	}
+	if (typeof selectedEnergyTypes === 'undefined') {
+		selectedEnergyTypes = [];
+	}
+
+	// Update from checkboxes to ensure we have the latest values
+	selectedRegions = Array.from(document.querySelectorAll('.region-checkbox:checked')).map((cb) => cb.value);
+	selectedEnergyTypes = Array.from(document.querySelectorAll('.energy-type-checkbox:checked')).map((cb) => cb.value);
+
 	// Show loading state
 	filteredContainer.style.display = 'block';
 	chartsContainer.innerHTML = `
@@ -364,6 +376,18 @@ async function applyFilters() {
 
 		let html = '';
 
+		// Display errors if any (but still show available charts)
+		if (filteredData.errors && filteredData.errors.length > 0) {
+			html += `
+				<div class="bg-yellow-900/20 border border-yellow-800 rounded-xl p-4 mb-4">
+					<p class="text-yellow-400 font-semibold mb-2">Warning:</p>
+					<ul class="list-disc list-inside space-y-1 text-yellow-300">
+						${filteredData.errors.map((err) => `<li>${err}</li>`).join('')}
+					</ul>
+				</div>
+			`;
+		}
+
 		// Render yearly trends comparison chart (if regions selected)
 		if (filteredData.yearly_trends_plot) {
 			const chartId = 'filtered-yearly-trends';
@@ -372,6 +396,7 @@ async function applyFilters() {
 					<h3 class="text-sm font-semibold mb-3">Yearly Trends Comparison${
 						selectedRegions.length > 0 ? ` - ${selectedRegions.join(', ')}` : ''
 					}</h3>
+					<p class="text-xs text-slate-400 mb-3">📊 Compare energy trends across selected regions.</p>
 					<div class="bg-slate-800/60 rounded-xl p-4">
 						<div id="${chartId}"></div>
 					</div>
@@ -390,6 +415,7 @@ async function applyFilters() {
 					<h3 class="text-sm font-semibold mb-3">Energy Sources Distribution${
 						selectedRegions.length > 0 ? ` - ${selectedRegions.join(', ')}` : ''
 					}</h3>
+					<p class="text-xs text-slate-400 mb-3">📊 Compare energy source distribution across selected regions.</p>
 					<div class="bg-slate-800/60 rounded-xl p-4">
 						<div id="${chartId}"></div>
 					</div>
@@ -403,9 +429,11 @@ async function applyFilters() {
 		// Render energy type time series chart (if energy type selected)
 		if (filteredData.energy_type_timeseries_plot) {
 			const chartId = 'filtered-energy-type-timeseries';
+			const energyTypeLabel = selectedEnergyTypes.length > 0 ? selectedEnergyTypes.join(', ') : 'Selected Energy Types';
 			html += `
 				<div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-6">
-					<h3 class="text-sm font-semibold mb-3">${selectedEnergyType} Trends Across Regions</h3>
+					<h3 class="text-sm font-semibold mb-3">${energyTypeLabel} Trends Across Regions</h3>
+					<p class="text-xs text-slate-400 mb-3">📊 Track how selected energy types evolve across regions over time.</p>
 					<div class="bg-slate-800/60 rounded-xl p-4">
 						<div id="${chartId}"></div>
 					</div>
@@ -424,7 +452,52 @@ async function applyFilters() {
 			`;
 		}
 
+		// Add download button if there are charts
+		if (
+			filteredData.yearly_trends_plot ||
+			filteredData.sources_distribution_plot ||
+			filteredData.energy_type_timeseries_plot
+		) {
+			html =
+				`
+				<div class="flex items-center justify-between mb-4">
+					<h4 class="text-sm font-semibold text-slate-300">Download Options</h4>
+					<div class="flex gap-2">
+						<button 
+							id="download-charts-btn"
+							class="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-2"
+							title="Download all charts as PNG images"
+						>
+							<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+								<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+								<polyline points="7 10 12 15 17 10"></polyline>
+								<line x1="12" y1="15" x2="12" y2="3"></line>
+							</svg>
+							Download Charts
+						</button>
+						<button 
+							id="download-data-btn"
+							class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-2"
+							title="Download filtered data as CSV"
+						>
+							<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+								<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+								<polyline points="7 10 12 15 17 10"></polyline>
+								<line x1="12" y1="15" x2="12" y2="3"></line>
+							</svg>
+							Download Data
+						</button>
+					</div>
+				</div>
+			` + html;
+		}
+
 		chartsContainer.innerHTML = html;
+
+		// Setup download handlers after charts are rendered
+		setTimeout(() => {
+			setupDownloadHandlers(selectedRegions, selectedEnergyTypes);
+		}, 500);
 	} catch (error) {
 		console.error('Failed to apply filters:', error);
 		chartsContainer.innerHTML = `
@@ -432,5 +505,88 @@ async function applyFilters() {
 				<p class="text-red-400">Error applying filters: ${error.message}</p>
 			</div>
 		`;
+	}
+}
+
+function setupDownloadHandlers(selectedRegions, selectedEnergyTypes) {
+	// Download charts button
+	const downloadChartsBtn = document.getElementById('download-charts-btn');
+	if (downloadChartsBtn) {
+		downloadChartsBtn.addEventListener('click', async () => {
+			try {
+				const chartIds = [
+					{ id: 'filtered-yearly-trends', name: 'yearly_trends' },
+					{ id: 'filtered-sources-distribution', name: 'sources_distribution' },
+					{ id: 'filtered-energy-type-timeseries', name: 'energy_type_timeseries' }
+				];
+
+				let downloaded = 0;
+				for (const chart of chartIds) {
+					const chartElement = document.getElementById(chart.id);
+					if (chartElement && chartElement.data && chartElement.data.length > 0) {
+						try {
+							await Plotly.downloadImage(chartElement, {
+								format: 'png',
+								width: 1200,
+								height: 600,
+								filename: `filtered_${chart.name}_${Date.now()}`
+							});
+							downloaded++;
+							// Small delay between downloads
+							await new Promise((resolve) => setTimeout(resolve, 500));
+						} catch (err) {
+							console.warn(`Failed to download ${chart.name}:`, err);
+						}
+					}
+				}
+
+				if (downloaded === 0) {
+					alert('No charts available to download. Please wait for charts to load.');
+				} else {
+					alert(`Successfully downloaded ${downloaded} chart(s).`);
+				}
+			} catch (error) {
+				console.error('Failed to download charts:', error);
+				alert('Error downloading charts. Please try again.');
+			}
+		});
+	}
+
+	// Download data button
+	const downloadDataBtn = document.getElementById('download-data-btn');
+	if (downloadDataBtn) {
+		downloadDataBtn.addEventListener('click', async () => {
+			try {
+				// Get filtered data from API
+				const params = new URLSearchParams();
+				if (selectedRegions && selectedRegions.length > 0) {
+					params.append('regions', selectedRegions.join(','));
+				}
+				if (selectedEnergyTypes && selectedEnergyTypes.length > 0) {
+					params.append('energy_types', selectedEnergyTypes.join(','));
+				}
+
+				const response = await fetch(`${window.location.origin}/api/analysis/filtered/data?${params.toString()}`);
+				if (!response.ok) {
+					throw new Error(`HTTP error! status: ${response.status}`);
+				}
+
+				const blob = await response.blob();
+				const url = window.URL.createObjectURL(blob);
+				const a = document.createElement('a');
+				a.href = url;
+				const filename = `filtered_data_${selectedRegions.join('_') || 'all_regions'}_${
+					selectedEnergyTypes.join('_') || 'all_types'
+				}_${Date.now()}.csv`;
+				a.download = filename;
+				document.body.appendChild(a);
+				a.click();
+				document.body.removeChild(a);
+				window.URL.revokeObjectURL(url);
+			} catch (error) {
+				console.error('Failed to download data:', error);
+				alert('Error downloading data. Please try again.');
+			}
+		});
 	}
 }

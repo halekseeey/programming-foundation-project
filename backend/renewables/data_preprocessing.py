@@ -12,7 +12,7 @@ from .data_processing import add_nuts_codes, get_data_quality_report, clean_and_
 cfg = get_config()
 
 
-def clean_renewable_share() -> pd.DataFrame:
+def clean_nrg_ind_ren() -> pd.DataFrame:
     """
     Clean nrg_ind_ren (share of renewable energy) dataset.
     Steps:
@@ -47,6 +47,13 @@ def clean_renewable_share() -> pd.DataFrame:
 
     # Drop rows without TIME_PERIOD or OBS_VALUE
     df = df.dropna(subset=["TIME_PERIOD", "OBS_VALUE"])
+
+    # Remove duplicate rows (same geo, TIME_PERIOD, and other key columns)
+    # Keep first occurrence
+    dedup_cols = ["geo", "TIME_PERIOD", "nrg_bal", "unit"]
+    available_dedup_cols = [col for col in dedup_cols if col in df.columns]
+    if len(available_dedup_cols) >= 2:  # Need at least geo and TIME_PERIOD
+        df = df.drop_duplicates(subset=available_dedup_cols, keep='first')
 
     return df
 
@@ -86,6 +93,13 @@ def clean_energy_balance() -> pd.DataFrame:
     # Drop rows without TIME_PERIOD or OBS_VALUE
     df = df.dropna(subset=["TIME_PERIOD", "OBS_VALUE"])
 
+    # Remove duplicate rows (same geo, TIME_PERIOD, siec, unit)
+    # Keep first occurrence
+    dedup_cols = ["geo", "TIME_PERIOD", "nrg_bal", "siec", "unit"]
+    available_dedup_cols = [col for col in dedup_cols if col in df.columns]
+    if len(available_dedup_cols) >= 2:  # Need at least geo and TIME_PERIOD
+        df = df.drop_duplicates(subset=available_dedup_cols, keep='first')
+
     return df
 
 
@@ -114,6 +128,15 @@ def clean_gdp_dataset() -> pd.DataFrame:
     df["geo"] = df["geo"].astype(str).str.strip()
 
     df = df.dropna(subset=["geo", "TIME_PERIOD", "OBS_VALUE"])
+
+    # Remove duplicate rows (same geo, TIME_PERIOD, unit)
+    # Keep first occurrence
+    dedup_cols = ["geo", "TIME_PERIOD"]
+    if "unit" in df.columns:
+        dedup_cols.append("unit")
+    available_dedup_cols = [col for col in dedup_cols if col in df.columns]
+    if len(available_dedup_cols) >= 2:  # Need at least geo and TIME_PERIOD
+        df = df.drop_duplicates(subset=available_dedup_cols, keep='first')
 
     return df
 
@@ -270,7 +293,7 @@ def preprocess_all_datasets() -> Dict[str, any]:
         cfg.DATA_CLEAN_DIR.mkdir(parents=True, exist_ok=True)
         
         # Step 1: Clean renewable share dataset
-        ren_df = clean_renewable_share()
+        ren_df = clean_nrg_ind_ren()
         stats["ren_rows_after"] = len(ren_df)
         
         # Store quality report

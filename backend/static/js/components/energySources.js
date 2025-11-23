@@ -48,11 +48,11 @@ function renderEnergySources(data) {
                 <h2 class="text-lg font-semibold">Energy Sources Comparison</h2>
                 ${data.source_column ? `<span class="text-xs text-slate-400">Source: ${data.source_column}</span>` : ''}
             </div>
-            <p class="text-xs text-blue-300/80">
-                ℹ️ All data from energy balance dataset (nrg_bal) with detailed source breakdown by region and year.
-            </p>
 
-            ${barChartHtml}
+            <div class="bg-slate-800/60 rounded-xl p-4">
+                <p class="text-xs text-slate-400 mb-2">📊 This chart compares different energy sources by their average values across all regions.</p>
+                ${barChartHtml}
+            </div>
 
             ${
 				data.sources && data.sources.length > 0
@@ -125,4 +125,3 @@ function renderEnergySources(data) {
         </section>
     `;
 }
-

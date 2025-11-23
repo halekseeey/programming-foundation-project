@@ -38,6 +38,9 @@ function renderCorrelationAnalysis(data) {
             <div class="flex items-center justify-between">
                 <h2 class="text-lg font-semibold">Correlation Analysis</h2>
             </div>
+            <p class="text-xs text-slate-400">💡 This analysis shows the relationship between renewable energy adoption and ${
+				data.indicator_type?.toUpperCase() || 'economic indicators'
+			}.</p>
 
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div class="bg-slate-800/60 rounded-xl p-4">
@@ -96,4 +99,3 @@ function renderCorrelationAnalysis(data) {
         </section>
     `;
 }
-

@@ -499,7 +499,12 @@ def get_filtered_visualizations():
     if regions and len(regions) > 0:
         trends_data = get_yearly_trends_by_regions(regions, year_from, year_to)
         
-        if "error" not in trends_data:
+        if "error" in trends_data:
+            # Store error message but don't fail the entire request
+            if "errors" not in result:
+                result["errors"] = []
+            result["errors"].append(trends_data["error"])
+        else:
             # Create multi-line chart for all selected regions
             fig = go.Figure()
             colors = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#6366f1']
@@ -535,12 +540,22 @@ def get_filtered_visualizations():
                     )
                 )
                 result["yearly_trends_plot"] = clean_plotly_dict_for_json(fig.to_dict())
+            else:
+                # No data for any region
+                if "errors" not in result:
+                    result["errors"] = []
+                result["errors"].append(f"No data available to build yearly trends chart for selected regions: {', '.join(regions)}")
     
     # Create energy sources distribution chart (if regions selected)
     if regions and len(regions) > 0:
         sources_data = get_energy_sources_by_regions(regions, year_from, year_to)
         
-        if "error" not in sources_data:
+        if "error" in sources_data:
+            # Store error message but don't fail the entire request
+            if "errors" not in result:
+                result["errors"] = []
+            result["errors"].append(sources_data["error"])
+        else:
             # Create grouped bar chart comparing sources across selected regions
             fig = go.Figure()
             colors = ['rgba(56, 189, 248, 0.8)', 'rgba(16, 185, 129, 0.8)', 'rgba(251, 191, 36, 0.8)', 
@@ -587,6 +602,11 @@ def get_filtered_visualizations():
                     )
                 )
                 result["sources_distribution_plot"] = clean_plotly_dict_for_json(fig.to_dict())
+            else:
+                # No data for any region
+                if "errors" not in result:
+                    result["errors"] = []
+                result["errors"].append(f"No data available to build energy sources distribution chart for selected regions: {', '.join(regions)}")
     
     # Create time series by energy types across regions (if energy types selected)
     if energy_types and len(energy_types) > 0:
@@ -599,7 +619,12 @@ def get_filtered_visualizations():
         for energy_type in energy_types:
             timeseries_data = get_time_series_by_energy_type(energy_type, regions, year_from, year_to)
             
-            if "error" not in timeseries_data:
+            if "error" in timeseries_data:
+                # Store error message but don't fail the entire request
+                if "errors" not in result:
+                    result["errors"] = []
+                result["errors"].append(timeseries_data["error"])
+            else:
                 # Add trace for each region for this energy type
                 for region, data in timeseries_data.items():
                     if data:
@@ -634,9 +659,59 @@ def get_filtered_visualizations():
                 )
             )
             result["energy_type_timeseries_plot"] = clean_plotly_dict_for_json(fig.to_dict())
+        else:
+            # No data for any energy type
+            if "errors" not in result:
+                result["errors"] = []
+            result["errors"].append(f"No data available to build time series chart for selected energy types: {', '.join(energy_types)}")
     
-    if not result:
+    # If no visualizations were created and no errors were collected, return general error
+    if not result or (len(result) == 1 and "errors" in result):
+        if "errors" in result and len(result["errors"]) > 0:
+            # Return the first error message
+            return jsonify({"error": result["errors"][0]})
         return jsonify({"error": "No visualizations available. Please select at least one region or energy type."})
     
     return jsonify(result)
+
+
+@analytics_bp.get("/api/analysis/filtered/data")
+def get_filtered_data_csv():
+    """
+    Export filtered data as CSV.
+    /api/analysis/filtered/data?regions=PT,DE,FR&energy_types=Solid fossil fuels
+    """
+    from flask import Response
+    from renewables.filtered_analytics import get_filtered_energy_data
+    
+    # Get regions as comma-separated list
+    regions_param = request.args.get("regions", "")
+    regions = [r.strip() for r in regions_param.split(",") if r.strip()] if regions_param else []
+    
+    # Get energy types as comma-separated list
+    energy_types_param = request.args.get("energy_types", "")
+    energy_types = [e.strip() for e in energy_types_param.split(",") if e.strip()] if energy_types_param else []
+    
+    year_from = request.args.get("year_from", type=int)
+    year_to = request.args.get("year_to", type=int)
+    
+    # Get filtered data
+    df = get_filtered_energy_data(
+        regions=regions if regions else None,
+        energy_type=energy_types[0] if energy_types else None,
+        year_from=year_from,
+        year_to=year_to
+    )
+    
+    if df.empty:
+        return jsonify({"error": "No data available for selected filters"}), 404
+    
+    # Convert to CSV
+    csv_string = df.to_csv(index=False)
+    
+    return Response(
+        csv_string,
+        mimetype="text/csv",
+        headers={"Content-Disposition": "attachment; filename=filtered_data.csv"}
+    )
 

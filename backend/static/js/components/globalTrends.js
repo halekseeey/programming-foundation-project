@@ -60,7 +60,10 @@ function renderGlobalTrends(data) {
                 </div>
             </div>
 
-            ${chartHtml}
+            <div class="bg-slate-800/60 rounded-xl p-4">
+                <p class="text-xs text-slate-400 mb-2">📊 This chart shows the average renewable energy share (%) across all regions over time.</p>
+                ${chartHtml}
+            </div>
 
             ${
 				data.year_over_year_changes && data.year_over_year_changes.length > 0
@@ -118,4 +121,3 @@ function renderGlobalTrends(data) {
         </section>
     `;
 }
-

@@ -21,6 +21,7 @@ async function loadHeatmapChart() {
 				document.getElementById(containerId).innerHTML = `
                     <div>
                         <h3 class="text-sm font-semibold mb-3">Regional Energy Intensity Heatmap</h3>
+                        <p class="text-xs text-slate-400 mb-3">Colors represent renewable energy share (%) - darker colors indicate higher adoption rates.</p>
                         <div class="bg-slate-800/60 rounded-xl p-4 overflow-auto">
                             <div id="${chartId}" style="min-width: 100%; min-height: 400px;"></div>
                         </div>
