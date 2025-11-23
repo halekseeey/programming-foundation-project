@@ -34,13 +34,11 @@ def get_filtered_energy_data(
     energy_df = load_dataset("clean_nrg_bal")
 
     
-    # Column names
     geo_col = "geo"
     year_col = "TIME_PERIOD"
     value_col = "OBS_VALUE"
     source_col = "siec"
     
-    # Convert to numeric
     energy_df[year_col] = pd.to_numeric(energy_df[year_col], errors='coerce')
     energy_df[value_col] = pd.to_numeric(energy_df[value_col], errors='coerce')
     energy_df = energy_df.dropna(subset=[geo_col, year_col, value_col, source_col])

@@ -1,15 +1,14 @@
-# backend/renewables/visualization.py
 from io import BytesIO
 from typing import Tuple, Optional
 from pathlib import Path
 
-import numpy as np              # <= явно используем numpy
-import pandas as pd             # <= и pandas
+import numpy as np
+import pandas as pd
 import matplotlib
-matplotlib.use('Agg')  # Use non-interactive backend to avoid GUI warnings
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-import seaborn as sns           # <= seaborn сверху над matplotlib
-import plotly.graph_objs as go  # <= plotly
+import seaborn as sns
+import plotly.graph_objs as go
 
 from config import get_config
 from .data_loader import filter_renewables
@@ -18,15 +17,10 @@ cfg = get_config()
 
 
 def _prepare_timeseries(country: str, year_from: Optional[int], year_to: Optional[int], value_col: Optional[str] = None) -> Tuple[pd.Series, pd.Series, pd.Series]:
-    """
-    Вытаскиваем данные по стране и считаем трендовую линию через numpy.
-    """
+    """Prepare time series data and calculate trend line."""
     df = filter_renewables(country=country, year_from=year_from, year_to=year_to)
 
-    # Column names (merged_dataset has TIME_PERIOD and OBS_VALUE_* columns)
     year_col = "TIME_PERIOD"
-    
-    # Use provided value_col if specified, otherwise use OBS_VALUE_nrg_ind_ren from merged dataset
     if not value_col:
         value_col = "OBS_VALUE_nrg_ind_ren"
 
@@ -35,7 +29,6 @@ def _prepare_timeseries(country: str, year_from: Optional[int], year_to: Optiona
         empty_series = pd.Series(dtype=float)
         return empty_series, empty_series, empty_series
     
-    # Convert to numeric
     df[year_col] = pd.to_numeric(df[year_col], errors='coerce')
     df[value_col] = pd.to_numeric(df[value_col], errors='coerce')
     df = df.dropna().sort_values(year_col)
@@ -43,7 +36,6 @@ def _prepare_timeseries(country: str, year_from: Optional[int], year_to: Optiona
     years = df[year_col].astype(int)
     values = df[value_col].astype(float)
 
-    # numpy: простая линейная регрессия для тренда
     if len(df) >= 2:
         coeffs = np.polyfit(years, values, 1)
         trend = np.poly1d(coeffs)(years)

@@ -1,7 +1,4 @@
-"""
-Analytics functions for renewable energy data analysis (Step 3).
-Uses merged datasets to perform comprehensive analysis.
-"""
+"""Analytics functions for renewable energy data analysis."""
 from typing import Optional
 import pandas as pd
 import numpy as np
@@ -11,33 +8,15 @@ from .data_loader import load_dataset
 
 cfg = get_config()
 def analyze_global_trends(year_from: Optional[int] = None, year_to: Optional[int] = None, value_col: Optional[str] = None) -> dict:
-    """
-    Identify overall trends in renewable energy growth over time.
-    
-    Uses the renewable energy percentage dataset (nrg_ind_ren) to analyze global trends,
-    as this is the most relevant metric for tracking renewable energy adoption.
-    
-    Returns:
-        Dictionary with trend analysis including:
-        - overall_growth_rate: Average annual growth rate
-        - trend_direction: "increasing", "decreasing", or "stable"
-        - year_over_year_changes: Year-to-year changes
-        - regional_averages: Average values by region
-        - period: Time period analyzed
-    """
-
+    """Analyze global trends in renewable energy growth over time."""
     df = load_dataset("clean_nrg_ind_ren")
 
-    # Column names
     geo_col = "geo"
     year_col = "TIME_PERIOD"
     primary_value_col = "OBS_VALUE"
     
-    # Filter by year range
     df[year_col] = pd.to_numeric(df[year_col], errors='coerce')
     df[primary_value_col] = pd.to_numeric(df[primary_value_col], errors='coerce')
-    
-    # Remove rows where primary value is NaN
     df = df.dropna(subset=[year_col, primary_value_col])
     
     if year_from:
@@ -48,10 +27,8 @@ def analyze_global_trends(year_from: Optional[int] = None, year_to: Optional[int
     if len(df) == 0:
         return {"error": "No data available for the specified period"}
     
-    # Calculate global average by year (using renewable energy percentage)
     yearly_avg = df.groupby(year_col)[primary_value_col].mean().sort_index()
     
-    # Calculate overall growth rate (linear regression)
     if len(yearly_avg) >= 2:
         years = yearly_avg.index.values
         values = yearly_avg.values
@@ -62,7 +39,6 @@ def analyze_global_trends(year_from: Optional[int] = None, year_to: Optional[int
         growth_rate = 0.0
         trend_direction = "stable"
     
-    # Year-over-year changes
     yoy_changes = []
     for i in range(1, len(yearly_avg)):
         prev_year = yearly_avg.index[i-1]
@@ -250,16 +226,12 @@ def evaluate_regions_ranking(year_from: Optional[int] = None, year_to: Optional[
     # for evaluating renewable adoption across regions
     df = load_dataset("clean_nrg_ind_ren")
     
-    # Column names
     geo_col = "geo"
     year_col = "TIME_PERIOD"
     primary_value_col = "OBS_VALUE"
     
-    # Filter by year range
     df[year_col] = pd.to_numeric(df[year_col], errors='coerce')
     df[primary_value_col] = pd.to_numeric(df[primary_value_col], errors='coerce')
-    
-    # Remove rows where primary value is NaN
     df = df.dropna(subset=[year_col, primary_value_col])
     
     if year_from:
@@ -346,16 +318,13 @@ def correlate_with_indicators(
     # This is the correct metric for correlating with GDP or population
     df = load_dataset("clean_nrg_ind_ren")
     
-    # Column names
     geo_col = "geo"
     year_col = "TIME_PERIOD"
     renewable_pct_col = "OBS_VALUE"
     
-    # Filter by country if specified
     if country:
         df = df[df[geo_col].astype(str).str.contains(str(country), case=False, na=False)]
     
-    # Filter by year range
     df[year_col] = pd.to_numeric(df[year_col], errors='coerce')
     df[renewable_pct_col] = pd.to_numeric(df[renewable_pct_col], errors='coerce')
     
@@ -364,7 +333,6 @@ def correlate_with_indicators(
     if year_to:
         df = df[df[year_col] <= year_to]
     
-    # Remove rows where renewable percentage is NaN
     df = df.dropna(subset=[year_col, renewable_pct_col])
 
     if len(df) == 0:
@@ -666,7 +634,6 @@ def analyze_merged_dataset(year_from: Optional[int] = None, year_to: Optional[in
     # Load merged dataset
     df = load_dataset("merged_dataset")
     
-    # Column names
     geo_col = "geo"
     year_col = "TIME_PERIOD"
     production_col = "OBS_VALUE_nrg_bal"
