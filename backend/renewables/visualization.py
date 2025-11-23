@@ -23,51 +23,12 @@ def _prepare_timeseries(country: str, year_from: Optional[int], year_to: Optiona
     """
     df = filter_renewables(country=country, year_from=year_from, year_to=year_to)
 
-    # Find year column
-    year_col = None
-    for col_name in ["year", "Year", "TIME", "time", "TIME_PERIOD"]:
-        if col_name in df.columns:
-            year_col = col_name
-            break
-    if year_col is None:
-        # Try to find numeric column that looks like years
-        for col in df.columns:
-            try:
-                sample = df[col].dropna().iloc[0] if len(df) > 0 else None
-                if sample is not None:
-                    year_val = int(float(str(sample)))
-                    if 1900 <= year_val <= 2100:
-                        year_col = col
-                        break
-            except (ValueError, TypeError):
-                continue
-        if year_col is None:
-            year_col = df.columns[1] if len(df.columns) > 1 else df.columns[-1]
-
-    # Find value column - use provided value_col if specified, otherwise auto-detect
-    if value_col and value_col in df.columns:
-        # Use the specified column
-        pass
-    else:
-        value_col = None
-        # Auto-detect: check for merged datasets first (OBS_VALUE_* columns)
-        obs_value_cols = [col for col in df.columns if col.startswith('OBS_VALUE_')]
-        if obs_value_cols:
-            # If multiple OBS_VALUE columns exist (merged datasets), use the first one
-            value_col = obs_value_cols[0]
-        else:
-            # Single dataset - look for standard OBS_VALUE column
-            for col_name in ["value", "Value", "VALUE", "OBS_VALUE"]:
-                if col_name in df.columns:
-                    value_col = col_name
-                    break
-        if value_col is None:
-            value_col = [c for c in df.columns if c != year_col][-1] if len(df.columns) > 1 else df.columns[-1]
-
-    if year_col not in df.columns or value_col not in df.columns:
-        # Return empty series if columns not found
-        empty_series = pd.Series(dtype=float)
-        return empty_series, empty_series, empty_series
+    # Column names (merged_dataset has TIME_PERIOD and OBS_VALUE_* columns)
+    year_col = "TIME_PERIOD"
+    
+    # Use provided value_col if specified, otherwise use OBS_VALUE_nrg_ind_ren from merged dataset
+    if not value_col:
+        value_col = "OBS_VALUE_nrg_ind_ren"
 
     df = df[[year_col, value_col]].dropna()
     if len(df) == 0:
@@ -90,73 +51,6 @@ def _prepare_timeseries(country: str, year_from: Optional[int], year_to: Optiona
         trend = np.full_like(values, fill_value=np.nan)
 
     return years, values, pd.Series(trend, index=years.index)
-
-
-def make_matplotlib_png(country: str, year_from: Optional[int], year_to: Optional[int], value_col: Optional[str] = None) -> bytes:
-    """
-    Строим PNG-график через matplotlib + seaborn и возвращаем байты.
-    """
-    years, values, trend = _prepare_timeseries(country, year_from, year_to, value_col=value_col)
-
-    sns.set_theme(style="whitegrid")  # seaborn
-
-    fig, ax = plt.subplots(figsize=(8, 4))
-
-    # основная линия
-    ax.plot(years, values, marker="o", label="Renewable share")
-
-    # трендовая линия
-    ax.plot(years, trend, linestyle="--", label="Trend (numpy fit)")
-
-    ax.set_title(f"Share of renewable energy – {country}")
-    ax.set_xlabel("Year")
-    ax.set_ylabel("Percentage")
-    ax.legend()
-
-    buf = BytesIO()
-    fig.tight_layout()
-    fig.savefig(buf, format="png")
-    plt.close(fig)
-    buf.seek(0)
-    return buf.read()
-
-
-def make_plotly_figure(country: str, year_from: Optional[int], year_to: Optional[int], value_col: Optional[str] = None) -> go.Figure:
-    """
-    Строим интерактивный график через plotly и отдаём Figure.
-    """
-    years, values, trend = _prepare_timeseries(country, year_from, year_to, value_col=value_col)
-
-    fig = go.Figure()
-
-    fig.add_trace(
-        go.Scatter(
-            x=years,
-            y=values,
-            mode="lines+markers",
-            name="Renewable share",
-        )
-    )
-
-    fig.add_trace(
-        go.Scatter(
-            x=years,
-            y=trend,
-            mode="lines",
-            name="Trend",
-            line=dict(dash="dash"),
-        )
-    )
-
-    fig.update_layout(
-        title=f"Share of renewable energy – {country}",
-        xaxis_title="Year",
-        yaxis_title="Percentage",
-        template="plotly_white",
-    )
-
-    return fig
-
 
 def make_yearly_averages_plot(yearly_averages: list, title: str = "Yearly Averages") -> go.Figure:
     """
@@ -872,62 +766,3 @@ def make_animated_regional_bar_chart(
     )
     
     return fig
-
-
-def save_chart(fig: go.Figure, chart_name: str, format: str = 'png') -> Optional[str]:
-    """
-    Save a Plotly figure to file as PNG (overwrites existing file).
-    Runs in background thread to avoid blocking API response.
-    
-    Args:
-        fig: Plotly Figure object
-        chart_name: Name for the chart file (without extension)
-        format: File format ('png' or 'html', default: 'png')
-    
-    Returns:
-        Path to saved file or None if error (returns immediately, actual save happens in background)
-    """
-    import threading
-    
-    def _save_in_background():
-        try:
-            # Ensure charts directory exists
-            charts_dir = cfg.CHARTS_DIR
-            charts_dir.mkdir(parents=True, exist_ok=True)
-            
-            # Sanitize chart name for filename
-            safe_name = "".join(c for c in chart_name if c.isalnum() or c in (' ', '-', '_')).strip()
-            safe_name = safe_name.replace(' ', '_')
-            
-            # Use fixed filename (overwrites on each save)
-            filename = f"{safe_name}.{format}"
-            filepath = charts_dir / filename
-            
-            if format == 'html':
-                fig.write_html(str(filepath))
-            elif format == 'png':
-                try:
-                    fig.write_image(str(filepath), width=1200, height=800, scale=2)
-                except Exception as img_error:
-                    # If PNG save fails (e.g., kaleido not installed), fallback to HTML
-                    print(f"Warning: Failed to save PNG for {chart_name}: {img_error}")
-                    print(f"Falling back to HTML format")
-                    html_filename = f"{safe_name}.html"
-                    html_filepath = charts_dir / html_filename
-                    fig.write_html(str(html_filepath))
-        except Exception as e:
-            print(f"Error saving chart {chart_name}: {e}")
-            import traceback
-            traceback.print_exc()
-    
-    # Start saving in background thread (non-blocking)
-    thread = threading.Thread(target=_save_in_background, daemon=True)
-    thread.start()
-    
-    # Return immediately (don't wait for save to complete)
-    charts_dir = cfg.CHARTS_DIR
-    safe_name = "".join(c for c in chart_name if c.isalnum() or c in (' ', '-', '_')).strip()
-    safe_name = safe_name.replace(' ', '_')
-    filename = f"{safe_name}.{format}"
-    filepath = charts_dir / filename
-    return str(filepath)

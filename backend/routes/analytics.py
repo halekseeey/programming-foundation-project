@@ -23,6 +23,8 @@ from renewables.visualization import (
 )
 import plotly.graph_objs as go
 
+from renewables.data_loader import load_dataset
+
 analytics_bp = Blueprint('analytics', __name__)
 
 
@@ -64,56 +66,54 @@ def energy_sources():
         data['timeseries_plot'] = fig.to_dict()
     
     # Generate bar chart for sources comparison across regions
-    # Load energy balance data directly for region-source breakdown
-    from renewables.data_loader import load_dataset
-    from config import get_config
+    # Load energy balance data for region-source breakdown
+
     
-    cfg = get_config()
-    energy_file = cfg.DATA_CLEAN_DIR / "clean_nrg_bal.csv"
-    
-    if energy_file.exists():
-        energy_df = pd.read_csv(energy_file)
+    try:
+        energy_df = load_dataset("clean_nrg_bal")
         
         # Apply same filters as in compare_energy_sources
         energy_geo_col = "geo"
         energy_year_col = "TIME_PERIOD"
         energy_value_col = "OBS_VALUE"
-        source_col = "siec" if "siec" in energy_df.columns else None
+        source_col = "siec"
         
-        if source_col:
-            energy_df[energy_year_col] = pd.to_numeric(energy_df[energy_year_col], errors='coerce')
-            energy_df[energy_value_col] = pd.to_numeric(energy_df[energy_value_col], errors='coerce')
-            energy_df = energy_df.dropna(subset=[energy_geo_col, energy_year_col, energy_value_col, source_col])
-            
-            if year_from:
-                energy_df = energy_df[energy_df[energy_year_col] >= year_from]
-            if year_to:
-                energy_df = energy_df[energy_df[energy_year_col] <= year_to]
-            if country:
-                energy_df = energy_df[energy_df[energy_geo_col].astype(str).str.contains(str(country), case=False, na=False)]
-            
-            # Filter out 'Total' source as it's an aggregation
-            energy_df = energy_df[energy_df[source_col] != 'Total']
-            
-            # Filter out aggregated regions (EU, etc.)
-            # Exclude regions containing: union, european, countries, euro area, etc.
-            exclude_patterns = ['union', 'european', 'countries', 'euro area', 'eurozone']
-            energy_df = energy_df[
-                ~energy_df[energy_geo_col].astype(str).str.lower().str.contains('|'.join(exclude_patterns), na=False)
-            ]
-            
-            # Aggregate by region and source
-            region_source_df = energy_df.groupby([energy_geo_col, source_col])[energy_value_col].sum().reset_index()
-            
-            if not region_source_df.empty:
-                fig_bar = make_sources_by_region_bar_chart(
-                    region_source_df,
-                    geo_col=energy_geo_col,
-                    source_col=source_col,
-                    value_col=energy_value_col,
-                    title="Energy Sources Comparison Across Regions"
-                )
-                data['bar_chart_plot'] = fig_bar.to_dict()
+        energy_df[energy_year_col] = pd.to_numeric(energy_df[energy_year_col], errors='coerce')
+        energy_df[energy_value_col] = pd.to_numeric(energy_df[energy_value_col], errors='coerce')
+        energy_df = energy_df.dropna(subset=[energy_geo_col, energy_year_col, energy_value_col, source_col])
+        
+        if year_from:
+            energy_df = energy_df[energy_df[energy_year_col] >= year_from]
+        if year_to:
+            energy_df = energy_df[energy_df[energy_year_col] <= year_to]
+        if country:
+            energy_df = energy_df[energy_df[energy_geo_col].astype(str).str.contains(str(country), case=False, na=False)]
+        
+        # Filter out 'Total' source as it's an aggregation
+        energy_df = energy_df[energy_df[source_col] != 'Total']
+        
+        # Filter out aggregated regions (EU, etc.)
+        # Exclude regions containing: union, european, countries, euro area, etc.
+        exclude_patterns = ['union', 'european', 'countries', 'euro area', 'eurozone']
+        energy_df = energy_df[
+            ~energy_df[energy_geo_col].astype(str).str.lower().str.contains('|'.join(exclude_patterns), na=False)
+        ]
+        
+        # Aggregate by region and source
+        region_source_df = energy_df.groupby([energy_geo_col, source_col])[energy_value_col].sum().reset_index()
+        
+        if not region_source_df.empty:
+            fig_bar = make_sources_by_region_bar_chart(
+                region_source_df,
+                geo_col=energy_geo_col,
+                source_col=source_col,
+                value_col=energy_value_col,
+                title="Energy Sources Comparison Across Regions"
+            )
+            data['bar_chart_plot'] = fig_bar.to_dict()
+    except (ValueError, FileNotFoundError):
+        # Dataset not found, skip bar chart
+        pass
     
     return jsonify(data)
 
@@ -214,27 +214,18 @@ def heatmap_regional():
     """
     /api/analysis/visualizations/heatmap?year_from=2010&year_to=2022
     Heatmap visualizing regional energy intensity over time.
+    Uses clean_nrg_ind_ren dataset for better coverage.
     """
     from renewables.data_loader import load_dataset
     
     year_from = request.args.get("year_from", type=int)
     year_to = request.args.get("year_to", type=int)
     
-    df = load_dataset("merged_dataset")
-    
+    # Use clean_nrg_ind_ren dataset for better coverage
+    df = load_dataset("clean_nrg_ind_ren")
     geo_col = "geo"
     year_col = "TIME_PERIOD"
-    value_col = None
-    
-    # Find renewable energy percentage column
-    obs_value_cols = [col for col in df.columns if col.startswith('OBS_VALUE_')]
-    for col in obs_value_cols:
-        if 'nrg_ind_ren' in col or 'ind_ren' in col.lower():
-            value_col = col
-            break
-    
-    if not value_col:
-        return jsonify({"error": "Renewable energy column not found"})
+    value_col = "OBS_VALUE"  # Direct column name in clean_nrg_ind_ren
     
     # Filter data
     df[year_col] = pd.to_numeric(df[year_col], errors='coerce')
@@ -272,27 +263,19 @@ def animated_map_regional():
     """
     /api/analysis/visualizations/animated-map?year_from=2010&year_to=2022
     Animated map showing how renewable energy adoption evolves year by year.
+    Uses clean_nrg_ind_ren dataset directly for better coverage.
     """
     from renewables.data_loader import load_dataset
     
     year_from = request.args.get("year_from", type=int)
     year_to = request.args.get("year_to", type=int)
     
-    df = load_dataset("merged_dataset")
-    
+    # Use clean_nrg_ind_ren dataset for better coverage
+    # This dataset contains only renewable energy percentage data and may have more countries
+    df = load_dataset("clean_nrg_ind_ren")
     geo_col = "geo"
     year_col = "TIME_PERIOD"
-    value_col = None
-    
-    # Find renewable energy percentage column
-    obs_value_cols = [col for col in df.columns if col.startswith('OBS_VALUE_')]
-    for col in obs_value_cols:
-        if 'nrg_ind_ren' in col or 'ind_ren' in col.lower():
-            value_col = col
-            break
-    
-    if not value_col:
-        return jsonify({"error": "Renewable energy column not found"})
+    value_col = "OBS_VALUE"  # Direct column name in clean_nrg_ind_ren
     
     # Filter data
     df[year_col] = pd.to_numeric(df[year_col], errors='coerce')
@@ -330,27 +313,19 @@ def animated_bar_regional():
     """
     /api/analysis/visualizations/animated-bar?year_from=2010&year_to=2022
     Animated bar chart showing how renewable energy share changes year by year across regions.
+    Uses clean_nrg_ind_ren dataset for better coverage.
     """
     from renewables.data_loader import load_dataset
     
     year_from = request.args.get("year_from", type=int)
     year_to = request.args.get("year_to", type=int)
     
-    df = load_dataset("merged_dataset")
-    
+    # Use clean_nrg_ind_ren dataset for better coverage
+    # This dataset contains only renewable energy percentage data and may have more countries
+    df = load_dataset("clean_nrg_ind_ren")
     geo_col = "geo"
     year_col = "TIME_PERIOD"
-    value_col = None
-    
-    # Find renewable energy percentage column
-    obs_value_cols = [col for col in df.columns if col.startswith('OBS_VALUE_')]
-    for col in obs_value_cols:
-        if 'nrg_ind_ren' in col or 'ind_ren' in col.lower():
-            value_col = col
-            break
-    
-    if not value_col:
-        return jsonify({"error": "Renewable energy column not found"})
+    value_col = "OBS_VALUE"  # Direct column name in clean_nrg_ind_ren
     
     # Filter data
     df[year_col] = pd.to_numeric(df[year_col], errors='coerce')
@@ -391,7 +366,7 @@ def get_regions():
     from renewables.data_loader import load_dataset
     
     df = load_dataset("merged_dataset")
-    geo_col = "geo" if "geo" in df.columns else df.columns[0]
+    geo_col = "geo"
     
     # Filter out aggregated regions
     exclude_patterns = ['union', 'european', 'countries', 'euro area', 'eurozone']
@@ -420,10 +395,7 @@ def get_energy_types():
         return jsonify({"energy_types": []})
     
     energy_df = pd.read_csv(energy_file)
-    source_col = "siec" if "siec" in energy_df.columns else None
-    
-    if not source_col:
-        return jsonify({"energy_types": []})
+    source_col = "siec"
     
     # Filter out 'Total' and get unique sources
     energy_types = energy_df[source_col].astype(str).unique().tolist()

@@ -14,26 +14,6 @@ class Config:
     # Файл Eurostat (ты его сам скачиваешь и кладёшь в backend/data/raw)
     NRG_IND_REN_FILE = DATA_RAW_DIR / "nrg_ind_ren.csv"
     
-    @staticmethod
-    def get_available_datasets() -> List[Dict[str, str]]:
-        """Get list of available datasets from clean directory (merged dataset)"""
-        datasets = []
-        clean_dir = Config.DATA_CLEAN_DIR
-        
-        if not clean_dir.exists():
-            return datasets
-        
-        # Check for merged dataset
-        merged_file = clean_dir / "merged_dataset.csv"
-        if merged_file.exists():
-            datasets.append({
-                "id": "merged_dataset",
-                "name": "Merged Dataset",
-                "filename": merged_file.name,
-                "path": str(merged_file)
-            })
-        
-        return datasets
 
 def get_config():
     return Config()

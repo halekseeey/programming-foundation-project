@@ -17,27 +17,17 @@ def load_dataset(dataset_id: str) -> pd.DataFrame:
     Returns:
         DataFrame with loaded data
     """
-    datasets = cfg.get_available_datasets()
-    dataset = next((d for d in datasets if d["id"] == dataset_id), None)
+    csv_path = cfg.DATA_CLEAN_DIR / f"{dataset_id}.csv"
+    if not csv_path.exists():
+        raise ValueError(f"Dataset {dataset_id} not found at {csv_path}")
     
-    if not dataset:
-        raise ValueError(f"Dataset {dataset_id} not found")
-    
-    csv_path = Path(dataset["path"])
     df = pd.read_csv(csv_path, sep=",", encoding='utf-8')
     return df
 
 
 def get_available_countries() -> List[str]:
     df = load_dataset("merged_dataset")
-    # Find geo/country column - try common names first
-    geo_col = None
-    for col_name in ["geo", "GEO", "country", "Country", "GEO/TIME"]:
-        if col_name in df.columns:
-            geo_col = col_name
-            break
-    if geo_col is None:
-        geo_col = df.columns[0]  # fallback to first column
+    geo_col = "geo"
     
     # Extract unique countries, filter out non-country values
     countries = df[geo_col].astype(str).unique().tolist()
@@ -58,14 +48,8 @@ def filter_renewables(
     """
     df = load_dataset("merged_dataset")
 
-    geo_col = "geo" if "geo" in df.columns else df.columns[0]
-    year_col = None
-    for col_name in ["year", "Year", "TIME", "time", "TIME_PERIOD"]:
-        if col_name in df.columns:
-            year_col = col_name
-            break
-    if year_col is None:
-            year_col = df.columns[1] if len(df.columns) > 1 else df.columns[-1]
+    geo_col = "geo"
+    year_col = "TIME_PERIOD"
 
     if country:
         df = df[df[geo_col].astype(str).str.contains(str(country), case=False, na=False)]

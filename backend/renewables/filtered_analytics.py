@@ -37,14 +37,11 @@ def get_filtered_energy_data(
     
     energy_df = pd.read_csv(energy_file)
     
-    # Find columns
+    # Column names
     geo_col = "geo"
     year_col = "TIME_PERIOD"
     value_col = "OBS_VALUE"
-    source_col = "siec" if "siec" in energy_df.columns else None
-    
-    if not source_col:
-        return pd.DataFrame()
+    source_col = "siec"
     
     # Convert to numeric
     energy_df[year_col] = pd.to_numeric(energy_df[year_col], errors='coerce')

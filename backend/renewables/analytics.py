@@ -25,40 +25,19 @@ def analyze_global_trends(year_from: Optional[int] = None, year_to: Optional[int
         - regional_averages: Average values by region
         - period: Time period analyzed
     """
-    df = load_dataset("merged_dataset")
 
-    # Find columns
-    geo_col = "geo" if "geo" in df.columns else df.columns[0]
-    year_col = None
-    for col_name in ["year", "Year", "TIME", "time", "TIME_PERIOD"]:
-        if col_name in df.columns:
-            year_col = col_name
-            break
-    
-    # Find OBS_VALUE columns - prioritize renewable energy percentage (nrg_ind_ren)
-    obs_value_cols = [col for col in df.columns if col.startswith('OBS_VALUE_')]
-    if not obs_value_cols:
-        return {"error": "No OBS_VALUE columns found. Expected 2 merged datasets."}
-    
-    # Use renewable energy percentage for trend analysis (most relevant for Step 3)
-    # Look for nrg_ind_ren first, otherwise use first available
-    primary_value_col = None
-    for col in obs_value_cols:
-        if 'nrg_ind_ren' in col or 'ind_ren' in col.lower():
-            primary_value_col = col
-            break
-    
-    if not primary_value_col:
-        primary_value_col = obs_value_cols[0]
+    df = load_dataset("clean_nrg_ind_ren")
 
-    if year_col not in df.columns:
-        return {"error": "Year column not found"}
+    # Column names
+    geo_col = "geo"
+    year_col = "TIME_PERIOD"
+    primary_value_col = "OBS_VALUE"
     
     # Filter by year range
     df[year_col] = pd.to_numeric(df[year_col], errors='coerce')
     df[primary_value_col] = pd.to_numeric(df[primary_value_col], errors='coerce')
     
-    # Remove rows where primary value is NaN (these are rows from the other dataset)
+    # Remove rows where primary value is NaN
     df = df.dropna(subset=[year_col, primary_value_col])
     
     if year_from:
@@ -136,24 +115,14 @@ def compare_energy_sources(year_from: Optional[int] = None, year_to: Optional[in
         Dictionary with comparison data by energy source
     """
     # Load cleaned energy balance dataset (retains all energy sources / siec values)
-    energy_file = cfg.DATA_CLEAN_DIR / "clean_nrg_bal.csv"
-    if not energy_file.exists():
-        return {"error": f"Clean energy balance dataset not found at {energy_file}"}
+
+    energy_df = load_dataset("clean_nrg_bal")
+
     
-    energy_df = pd.read_csv(energy_file)
-    
-    energy_geo_col = "geo" if "geo" in energy_df.columns else energy_df.columns[0]
-    energy_year_col = "TIME_PERIOD" if "TIME_PERIOD" in energy_df.columns else energy_df.columns[1]
-    energy_value_col = "OBS_VALUE" if "OBS_VALUE" in energy_df.columns else energy_df.columns[-1]
-    
-    source_col = None
-    if "siec" in energy_df.columns:
-        source_col = "siec"
-    elif "nrg_bal" in energy_df.columns:
-        source_col = "nrg_bal"
-    
-    if source_col is None:
-        return {"error": "Energy source column (siec or nrg_bal) not found in energy balance dataset"}
+    energy_geo_col = "geo"
+    energy_year_col = "TIME_PERIOD"
+    energy_value_col = "OBS_VALUE"
+    source_col = "siec"
     
     # Apply filters
     if country:
@@ -276,33 +245,15 @@ def evaluate_regions_ranking(year_from: Optional[int] = None, year_to: Optional[
     Returns:
         Dictionary with leading and lagging regions
     """
-    df = load_dataset("merged_dataset")
+    # Use clean_nrg_ind_ren dataset for better coverage
+    # This dataset contains share of renewable energy, which is the correct metric
+    # for evaluating renewable adoption across regions
+    df = load_dataset("clean_nrg_ind_ren")
     
-    # Find columns
-    geo_col = "geo" if "geo" in df.columns else df.columns[0]
-    year_col = None
-    for col_name in ["year", "Year", "TIME", "time", "TIME_PERIOD"]:
-        if col_name in df.columns:
-            year_col = col_name
-            break
-    
-    # Find OBS_VALUE columns - use renewable energy percentage for ranking
-    obs_value_cols = [col for col in df.columns if col.startswith('OBS_VALUE_')]
-    if not obs_value_cols:
-        return {"error": "No OBS_VALUE columns found. Expected 2 merged datasets."}
-    
-    # Prioritize renewable energy percentage for ranking
-    primary_value_col = None
-    for col in obs_value_cols:
-        if 'nrg_ind_ren' in col or 'ind_ren' in col.lower():
-            primary_value_col = col
-            break
-    
-    if not primary_value_col:
-        primary_value_col = obs_value_cols[0]
-    
-    if year_col not in df.columns:
-        return {"error": "Year column not found"}
+    # Column names
+    geo_col = "geo"
+    year_col = "TIME_PERIOD"
+    primary_value_col = "OBS_VALUE"
     
     # Filter by year range
     df[year_col] = pd.to_numeric(df[year_col], errors='coerce')
@@ -400,46 +351,22 @@ def correlate_with_indicators(
     Returns:
         Dictionary with correlation analysis
     """
-    df = load_dataset("merged_dataset")
+    # Use clean_nrg_ind_ren dataset for renewable energy percentage data
+    # This is the correct metric for correlating with GDP or population
+    df = load_dataset("clean_nrg_ind_ren")
     
-    # Find columns
-    geo_col = "geo" if "geo" in df.columns else df.columns[0]
-    year_col = None
-    for col_name in ["year", "Year", "TIME", "time", "TIME_PERIOD"]:
-        if col_name in df.columns:
-            year_col = col_name
-            break
-    
-    # Find OBS_VALUE columns
-    obs_value_cols = [col for col in df.columns if col.startswith('OBS_VALUE_')]
-    if not obs_value_cols:
-        return {"error": "No OBS_VALUE columns found. Expected 2 merged datasets."}
-    
-    # Identify renewable percentage and energy balance columns
-    renewable_pct_col = None
-    energy_balance_col = None
-    
-    for col in obs_value_cols:
-        if 'nrg_ind_ren' in col or 'ind_ren' in col.lower():
-            renewable_pct_col = col
-        elif 'nrg_bal' in col or 'bal' in col.lower():
-            energy_balance_col = col
-    
-    if not renewable_pct_col:
-        renewable_pct_col = obs_value_cols[0]
-    
-    if year_col not in df.columns:
-        return {"error": "Year column not found"}
+    # Column names
+    geo_col = "geo"
+    year_col = "TIME_PERIOD"
+    renewable_pct_col = "OBS_VALUE"
     
     # Filter by country if specified
-    if country and geo_col in df.columns:
+    if country:
         df = df[df[geo_col].astype(str).str.contains(str(country), case=False, na=False)]
     
     # Filter by year range
-        df[year_col] = pd.to_numeric(df[year_col], errors='coerce')
+    df[year_col] = pd.to_numeric(df[year_col], errors='coerce')
     df[renewable_pct_col] = pd.to_numeric(df[renewable_pct_col], errors='coerce')
-    if energy_balance_col:
-        df[energy_balance_col] = pd.to_numeric(df[energy_balance_col], errors='coerce')
     
     if year_from:
         df = df[df[year_col] >= year_from]
@@ -456,39 +383,31 @@ def correlate_with_indicators(
     renewable_trends = df.groupby([geo_col, year_col])[renewable_pct_col].mean().reset_index()
     renewable_trends = renewable_trends.rename(columns={renewable_pct_col: 'renewable_value'})
     
-    # Try to load real GDP data from nama_10_gdp.csv file
+    # Try to load real GDP data from clean_nama_10_gdp dataset
     gdp_data = None
     if indicator.lower() == "gdp":
-        gdp_file = cfg.DATA_CLEAN_DIR / "clean_nama_10_gdp.csv"
-        
-        if gdp_file.exists():
-            try:
-                gdp_df = pd.read_csv(gdp_file, sep=",", encoding='utf-8')
-                
-                # Standardize column names (strip whitespace)
-                gdp_df.columns = gdp_df.columns.str.strip()
-                
-                # Verify required columns exist
-                required_cols = ['geo', 'TIME_PERIOD', 'OBS_VALUE']
-                if not all(col in gdp_df.columns for col in required_cols):
-                    raise ValueError(f"GDP file missing required columns. Found: {list(gdp_df.columns)}, Required: {required_cols}")
-                
-                # Normalize geo column (strip whitespace for consistent matching)
-                gdp_df['geo'] = gdp_df['geo'].astype(str).str.strip()
-                
-                # Convert TIME_PERIOD to numeric for easier matching
-                gdp_df['TIME_PERIOD'] = pd.to_numeric(gdp_df['TIME_PERIOD'], errors='coerce')
-                
-                # Convert OBS_VALUE to numeric
-                gdp_df['OBS_VALUE'] = pd.to_numeric(gdp_df['OBS_VALUE'], errors='coerce')
-                
-                # Remove rows with invalid data
-                gdp_df = gdp_df.dropna(subset=['geo', 'TIME_PERIOD', 'OBS_VALUE'])
-                
-                gdp_data = gdp_df
-            except Exception as e:
-                # Silently fall back to synthetic GDP data if file cannot be loaded
-                pass
+        try:
+            gdp_df = load_dataset("clean_nama_10_gdp")
+            
+            # Standardize column names (strip whitespace)
+            gdp_df.columns = gdp_df.columns.str.strip()
+            
+            # Normalize geo column (strip whitespace for consistent matching)
+            gdp_df['geo'] = gdp_df['geo'].astype(str).str.strip()
+            
+            # Convert TIME_PERIOD to numeric for easier matching
+            gdp_df['TIME_PERIOD'] = pd.to_numeric(gdp_df['TIME_PERIOD'], errors='coerce')
+            
+            # Convert OBS_VALUE to numeric
+            gdp_df['OBS_VALUE'] = pd.to_numeric(gdp_df['OBS_VALUE'], errors='coerce')
+            
+            # Remove rows with invalid data
+            gdp_df = gdp_df.dropna(subset=['geo', 'TIME_PERIOD', 'OBS_VALUE'])
+            
+            gdp_data = gdp_df
+        except (ValueError, FileNotFoundError):
+            # Silently fall back to synthetic GDP data if dataset cannot be loaded
+            pass
     
     # Prepare indicator data
     indicator_data = []
@@ -563,9 +482,6 @@ def correlate_with_indicators(
     
     # Calculate correlation coefficient
     indicator_df = pd.DataFrame(indicator_data)
-    
-    if 'year' not in indicator_df.columns:
-        return {"error": "Year column not found in indicator data"}
     
     correlation = indicator_df['renewable_value'].corr(indicator_df['indicator_value'])
     
