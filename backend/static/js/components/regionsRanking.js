@@ -16,13 +16,13 @@ function renderRegionsRanking(data) {
                 <h2 class="text-lg font-semibold">Regions Ranking</h2>
                 ${data.metric_used ? `<span class="text-xs text-slate-400">(${data.metric_used})</span>` : ''}
             </div>
-            <p class="text-xs text-slate-400">💡 Regions are ranked by current renewable energy adoption and growth rates.</p>
+            <p class="text-xs text-slate-400">💡 Regions are ranked by last available renewable energy adoption and growth rates.</p>
 
             ${
 				data.leading_by_value && data.leading_by_value.length > 0
 					? `
                 <div>
-                    <h3 class="text-sm font-semibold mb-3">Leading by Current Value</h3>
+                    <h3 class="text-sm font-semibold mb-3">Leading by Last Available Value</h3>
                     <p class="text-xs text-slate-500 mb-2">
                         <strong>Growth rate:</strong> Average annual increase in percentage points per year (linear regression slope). 
                         <strong>Change:</strong> Total percentage change from first to last available value. 

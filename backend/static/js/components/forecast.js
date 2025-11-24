@@ -57,7 +57,7 @@ async function renderForecast(region = null, yearsAhead = 5) {
 						</p>
 					</div>
 					<div class="bg-slate-800/60 rounded-xl p-4">
-						<p class="text-xs text-slate-400 mb-1">Current Value</p>
+						<p class="text-xs text-slate-400 mb-1">Last available</p>
 						<p class="text-2xl font-bold text-sky-400">${lastHistorical.value.toFixed(1)}%</p>
 						<p class="text-xs text-slate-500 mt-1">${lastHistorical.year}</p>
 					</div>
