@@ -6,7 +6,6 @@ async function loadAdditionalVisualizations() {
 	// Create container HTML with placeholders for each chart
 	container.innerHTML = `
         <section class="bg-slate-900/60 border border-slate-800 rounded-2xl p-6 space-y-6">
-            <h2 class="text-lg font-semibold">Additional Visualizations</h2>
             
             <!-- Heatmap Chart -->
             <div id="heatmap-chart-container">
